@@ -19,7 +19,7 @@ Your app now has Shopify OAuth! Here's how customers will auto-connect:
 2. Click **Apps** → **Create app**
 3. Choose **Custom app** or **Public app**
 4. Fill in:
-   - **App name**: BulkPrice
+   - **App name**: PricePilotPro
    - **App URL**: `https://your-app.vercel.app`
    - **Allowed redirection URL**: `https://your-app.vercel.app/api/auth/callback`
 
