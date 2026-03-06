@@ -6,9 +6,10 @@ interface ActionStepProps {
   onNext: (action: PriceAction) => void;
   onBack: () => void;
   loading: boolean;
+  matchingCount: number;
 }
 
-export default function ActionStep({ onNext, onBack, loading }: ActionStepProps) {
+export default function ActionStep({ onNext, onBack, loading, matchingCount }: ActionStepProps) {
   const [actionType, setActionType] = useState<PriceAction["type"]>(
     "percentage_increase"
   );
@@ -50,6 +51,12 @@ export default function ActionStep({ onNext, onBack, loading }: ActionStepProps)
         <p className="text-gray-600">
           Select how you want to modify the prices of selected products.
         </p>
+      </div>
+
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+        <p className="text-sm text-indigo-700 font-semibold">Scope Preview</p>
+        <p className="text-indigo-900 text-lg font-bold">{matchingCount} products selected</p>
+        <p className="text-sm text-indigo-700">Estimated API operations: {matchingCount}</p>
       </div>
 
       {/* Action Type Selection */}

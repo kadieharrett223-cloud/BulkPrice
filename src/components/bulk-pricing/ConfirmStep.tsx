@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChevronLeft, AlertCircle, CheckCircle, Loader } from "lucide-react";
 
 interface ConfirmStepProps {
@@ -5,6 +6,7 @@ interface ConfirmStepProps {
   onConfirm: () => void;
   onBack: () => void;
   loading: boolean;
+  progress: number;
 }
 
 export default function ConfirmStep({
@@ -12,7 +14,10 @@ export default function ConfirmStep({
   onConfirm,
   onBack,
   loading,
+  progress,
 }: ConfirmStepProps) {
+  const [acknowledged, setAcknowledged] = useState(false);
+
   return (
     <div className="space-y-8">
       <div>
@@ -55,6 +60,29 @@ export default function ConfirmStep({
         </p>
       </div>
 
+      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+        <label className="flex items-start space-x-3">
+          <input
+            type="checkbox"
+            checked={acknowledged}
+            onChange={(event) => setAcknowledged(event.target.checked)}
+            className="w-4 h-4 mt-1"
+          />
+          <span className="text-sm text-gray-700">
+            I understand these changes will update live store prices and may require rollback to undo.
+          </span>
+        </label>
+      </div>
+
+      {loading && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <p className="text-sm text-gray-700 mb-2">Applying updates...</p>
+          <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+            <div className="h-full bg-shopify transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
       {/* Safety Features */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="border border-green-200 bg-green-50 rounded-lg p-4">
@@ -86,7 +114,7 @@ export default function ConfirmStep({
         </button>
         <button
           onClick={onConfirm}
-          disabled={loading}
+          disabled={loading || !acknowledged || affectedCount === 0}
           className="flex items-center space-x-2 bg-green-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all"
         >
           {loading && <Loader className="w-5 h-5 animate-spin" />}

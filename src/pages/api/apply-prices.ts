@@ -11,6 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
   try {
     const db = await initDb();
+    const startedAt = Date.now();
     const { filters, action, changeGroupId }: { filters: PriceFilter; action: PriceAction; changeGroupId: string } = req.body;
 
     // Get settings
@@ -71,6 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const shopifyAPI = createShopifyAPI(settings.apiKey, settings.apiPassword, settings.shop);
     const updates: any[] = [];
+    let failedCount = 0;
 
     for (const variant of variants) {
       const newPrice = calculateNewPrice(variant.price, action);
@@ -92,6 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         await shopifyAPI.updateVariantPrice(variant.shopifyId, newPrice, newCompareAtPrice);
       } catch (error) {
         console.error(`Error updating variant ${variant.shopifyId}:`, error);
+        failedCount += 1;
       }
 
       // Store price history
@@ -169,6 +172,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       data: {
         changeGroupId,
         affectedCount: variants.length,
+        failedCount,
+        durationMs: Date.now() - startedAt,
         updates,
       },
     });

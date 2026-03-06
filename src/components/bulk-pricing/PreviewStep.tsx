@@ -129,81 +129,90 @@ export default function PreviewStep({ preview, onBack, onNext }: PreviewStepProp
 
       {/* Table */}
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-6 py-3 text-left font-semibold text-gray-700">
-                Product
-              </th>
-              <th className="px-6 py-3 text-left font-semibold text-gray-700">
-                Variant
-              </th>
-              <th className="px-6 py-3 text-right font-semibold text-gray-700">
-                Old Price
-              </th>
-              <th className="px-6 py-3 text-right font-semibold text-gray-700">
-                New Price
-              </th>
-              <th className="px-6 py-3 text-right font-semibold text-gray-700">
-                Change
-              </th>
-              <th className="px-6 py-3 text-right font-semibold text-gray-700">
-                Savings
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {sorted.map((item) => (
-              <tr
-                key={item.variantId}
-                className="hover:bg-gray-50 transition-colors"
-              >
-                <td className="px-6 py-3 font-medium text-gray-900">
-                  {item.productTitle}
-                </td>
-                <td className="px-6 py-3 text-gray-600">{item.variantTitle}</td>
-                <td className="px-6 py-3 text-right text-gray-900">
-                  ${item.oldPrice.toFixed(2)}
-                </td>
-                <td className="px-6 py-3 text-right font-semibold text-gray-900">
-                  ${item.newPrice.toFixed(2)}
-                </td>
-                <td className="px-6 py-3 text-right">
-                  <div
-                    className={`flex items-center justify-end space-x-1 ${
-                      item.change > 0
-                        ? "text-green-600"
-                        : item.change < 0
-                        ? "text-red-600"
-                        : "text-gray-600"
-                    }`}
-                  >
-                    {item.change !== 0 && (
-                      <>
-                        {item.change > 0 ? (
-                          <TrendingUp className="w-4 h-4" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4" />
-                        )}
-                        <span>
-                          {item.change > 0 ? "+" : ""}
-                          {item.change.toFixed(2)}%
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-3 text-right font-medium text-red-600">
-                  {item.savings ? (
-                    <>-${item.savings.toFixed(2)}</>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
-                </td>
+        {sorted.length === 0 ? (
+          <div className="p-10 text-center">
+            <p className="text-lg font-semibold text-gray-900 mb-2">No products match these filters</p>
+            <p className="text-sm text-gray-600">
+              Try adjusting collection, vendor, price range, or inventory filters.
+            </p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">
+                  Product
+                </th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">
+                  Variant
+                </th>
+                <th className="px-6 py-3 text-right font-semibold text-gray-700">
+                  Old Price
+                </th>
+                <th className="px-6 py-3 text-right font-semibold text-gray-700">
+                  New Price
+                </th>
+                <th className="px-6 py-3 text-right font-semibold text-gray-700">
+                  Change
+                </th>
+                <th className="px-6 py-3 text-right font-semibold text-gray-700">
+                  Savings
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y">
+              {sorted.map((item) => (
+                <tr
+                  key={item.variantId}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-6 py-3 font-medium text-gray-900">
+                    {item.productTitle}
+                  </td>
+                  <td className="px-6 py-3 text-gray-600">{item.variantTitle}</td>
+                  <td className="px-6 py-3 text-right text-gray-900">
+                    ${item.oldPrice.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-3 text-right font-semibold text-gray-900">
+                    ${item.newPrice.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    <div
+                      className={`flex items-center justify-end space-x-1 ${
+                        item.change > 0
+                          ? "text-green-600"
+                          : item.change < 0
+                          ? "text-red-600"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      {item.change !== 0 && (
+                        <>
+                          {item.change > 0 ? (
+                            <TrendingUp className="w-4 h-4" />
+                          ) : (
+                            <TrendingDown className="w-4 h-4" />
+                          )}
+                          <span>
+                            {item.change > 0 ? "+" : ""}
+                            {item.change.toFixed(2)}%
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-3 text-right font-medium text-red-600">
+                    {item.savings ? (
+                      <>-${item.savings.toFixed(2)}</>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Navigation */}
