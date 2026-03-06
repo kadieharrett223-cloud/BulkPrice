@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import toast from "react-hot-toast";
 import {
   Download,
   Clock,
@@ -13,6 +14,7 @@ import {
   Eye,
   Copy,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import { ActivityLog, ScheduledChange } from "@/types";
 import { formatDate } from "@lib/price-utils";
@@ -22,6 +24,7 @@ interface DashboardStats {
   activeCampaigns: number;
   scheduledChanges: number;
   lastUpdate: string | null;
+  totalProducts: number;
 }
 
 export default function Dashboard() {
@@ -30,10 +33,12 @@ export default function Dashboard() {
     activeCampaigns: 0,
     scheduledChanges: 0,
     lastUpdate: null,
+    totalProducts: 0,
   });
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [upcomingCampaigns, setUpcomingCampaigns] = useState<ScheduledChange[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -41,9 +46,10 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [logsResponse, scheduledResponse] = await Promise.all([
+      const [logsResponse, scheduledResponse, productsResponse] = await Promise.all([
         axios.get("/api/activity-log?limit=5"),
         axios.get("/api/scheduled-changes"),
+        axios.get("/api/products?limit=1"),
       ]);
 
       if (logsResponse.data.success) {
@@ -61,6 +67,14 @@ export default function Dashboard() {
           ...prev,
           productsUpdated: totalUpdated,
           lastUpdate: lastLog ? lastLog.timestamp : null,
+        }));
+      }
+
+      if (productsResponse.data.success) {
+        const productsTotal = productsResponse.data.data.total || 0;
+        setStats((prev) => ({
+          ...prev,
+          totalProducts: productsTotal,
         }));
       }
 
@@ -85,6 +99,47 @@ export default function Dashboard() {
     }
   };
 
+  const handleSyncProducts = async () => {
+    if (syncing) return;
+
+    setSyncing(true);
+    const toastId = toast.loading("Syncing products from Shopify...");
+
+    try {
+      // Get shop from URL or localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
+      if (!shop) {
+        toast.error("Shop not found. Please complete OAuth first.", { id: toastId });
+        return;
+      }
+
+      const response = await axios.post("/api/sync-products", { shop });
+
+      if (response.data.success) {
+        const { productsSync, variantsSync } = response.data.data;
+        toast.success(
+          `Synced ${productsSync} products with ${variantsSync} variants!`,
+          { id: toastId }
+        );
+        
+        // Refresh dashboard data
+        await fetchDashboardData();
+      } else {
+        toast.error(response.data.error || "Failed to sync products", { id: toastId });
+      }
+    } catch (error: any) {
+      console.error("Sync error:", error);
+      toast.error(
+        error.response?.data?.error || "Failed to sync products from Shopify",
+        { id: toastId }
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const getTimeAgo = (timestamp: string) => {
     const now = new Date();
     const past = new Date(timestamp);
@@ -100,8 +155,67 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      {/* Sync Banner */}
+      {stats.totalProducts === 0 && !loading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <RefreshCw className="w-6 h-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-blue-900 mb-1">
+                Sync Your Products First
+              </h3>
+              <p className="text-sm text-blue-700 mb-4">
+                Before you can update prices, you need to sync your products from Shopify. 
+                This will import all your products and variants into PricePilot Pro.
+              </p>
+              <button
+                onClick={handleSyncProducts}
+                disabled={syncing}
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-md font-medium transition"
+              >
+                {syncing ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Syncing Products...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-5 h-5" />
+                    Sync Products from Shopify
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Package className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Products in Catalog</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalProducts.toLocaleString()}</p>
+            </div>
+          </div>
+          {stats.totalProducts > 0 && (
+            <button
+              onClick={handleSyncProducts}
+              disabled={syncing}
+              className="mt-3 text-xs text-blue-600 hover:text-blue-700 disabled:text-blue-400 flex items-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing..." : "Resync"}
+            </button>
+          )}
+        </div>
+
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-lg">

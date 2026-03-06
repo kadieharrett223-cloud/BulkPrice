@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { PriceFilter, PriceAction, ApiResponse } from "@/types";
 import { applyMarginProtection, calculateNewPrice, generateId } from "@lib/price-utils";
-import { createShopifyAPI } from "@lib/shopify-api";
+import { sessionStorage } from "@lib/session-storage";
+import { shopify } from "@lib/shopify-config";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   if (req.method !== "POST") {
@@ -12,13 +13,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   try {
     const db = await initDb();
     const startedAt = Date.now();
-    const { filters, action, changeGroupId }: { filters: PriceFilter; action: PriceAction; changeGroupId: string } = req.body;
+    const { filters, action, changeGroupId, shop }: { filters: PriceFilter; action: PriceAction; changeGroupId: string; shop: string } = req.body;
 
-    // Get settings
-    const settings = await db.get("SELECT * FROM settings LIMIT 1");
-    if (!settings) {
-      return res.status(400).json({ success: false, error: "Settings not configured" });
+    if (!shop) {
+      return res.status(400).json({ success: false, error: "Shop parameter required" });
     }
+
+    // Get OAuth session
+    const sessionId = shopify.session.getOfflineId(shop);
+    const session = await sessionStorage.loadSession(sessionId);
+
+    if (!session?.accessToken) {
+      return res.status(401).json({ success: false, error: "Not authenticated. Please complete OAuth first." });
+    }
+
+    // Create GraphQL client
+    const client = new shopify.clients.Graphql({ session });
 
     // Build filter query
     let filterQuery = "WHERE 1=1";
@@ -70,7 +80,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       params
     );
 
-    const shopifyAPI = createShopifyAPI(settings.apiKey, settings.apiPassword, settings.shop);
     const updates: any[] = [];
     let failedCount = 0;
 
@@ -95,12 +104,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         }
       }
 
-      // Update variant in Shopify (via API)
+      // Update variant in Shopify via GraphQL
       try {
-        await shopifyAPI.updateVariantPrice(variant.shopifyId, newPrice, newCompareAtPrice);
+        const variantGid = `gid://shopify/ProductVariant/${variant.shopifyId}`;
+        const mutation = `
+          mutation productVariantUpdate($input: ProductVariantInput!) {
+            productVariantUpdate(input: $input) {
+              productVariant {
+                id
+                price
+                compareAtPrice
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        const variables = {
+          input: {
+            id: variantGid,
+            price: newPrice.toFixed(2),
+            ...(newCompareAtPrice !== undefined && newCompareAtPrice !== null && {
+              compareAtPrice: newCompareAtPrice.toFixed(2),
+            }),
+          },
+        };
+
+        const response: any = await client.query({
+          data: {
+            query: mutation,
+            variables,
+          },
+        });
+
+        if (response.body.data.productVariantUpdate.userErrors.length > 0) {
+          console.error(`Errors updating variant ${variant.shopifyId}:`, response.body.data.productVariantUpdate.userErrors);
+          failedCount += 1;
+          continue;
+        }
       } catch (error) {
         console.error(`Error updating variant ${variant.shopifyId}:`, error);
         failedCount += 1;
+        continue;
       }
 
       // Store price history

@@ -4,10 +4,19 @@ import { Toaster } from "react-hot-toast";
 import Navigation from "@components/Navigation";
 import { ShopifyAppProvider } from "@components/ShopifyAppProvider";
 import { useRouter } from "next/router";
+import { useEffect } from "react";
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const isBulkPricingPage = router.pathname === "/bulk-pricing";
+
+  // Save shop parameter to localStorage when available
+  useEffect(() => {
+    const shop = router.query.shop as string;
+    if (shop && typeof window !== "undefined") {
+      localStorage.setItem("shopifyShop", shop);
+    }
+  }, [router.query.shop]);
 
   return (
     <ShopifyAppProvider>

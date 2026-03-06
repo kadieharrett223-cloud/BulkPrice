@@ -169,10 +169,15 @@ export default function BulkPricingPage() {
     }, 300);
 
     try {
+      // Get shop from URL or localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
       const response = await axios.post("/api/apply-prices", {
         filters,
         action,
         changeGroupId,
+        shop,
       });
 
       if (response.data.success) {
