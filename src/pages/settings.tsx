@@ -8,7 +8,7 @@ export default function SettingsPage() {
     apiKey: "",
     apiPassword: "",
     shop: "",
-    plan: "basic",
+    plan: "starter",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -159,11 +159,8 @@ export default function SettingsPage() {
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-shopify"
               >
-                <option value="basic">Basic - $9/month</option>
-                <option value="pro">Pro - $19/month (includes scheduling)</option>
-                <option value="advanced">
-                  Advanced - $39/month (all features)
-                </option>
+                <option value="starter">Starter - $1.99/month (5 bulk changes/month)</option>
+                <option value="premium">Premium - $9.99/month (unlimited bulk changes)</option>
               </select>
             </div>
 

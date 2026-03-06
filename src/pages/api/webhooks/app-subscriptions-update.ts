@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (shop && payload?.app_subscription?.name) {
       const planName = String(payload.app_subscription.name).toLowerCase();
-      const plan = planName.includes("pro") ? "pro" : "basic";
+      const plan = planName.includes("premium") ? "premium" : "starter";
 
       const db = await initDb();
       await db.run("UPDATE settings SET plan = ?, updatedAt = ? WHERE shop = ?", [

@@ -30,7 +30,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse<ApiResponse<a
         apiKey: "",
         apiPassword: "",
         shop: "",
-        plan: "basic",
+        plan: "starter",
       },
     });
   }
@@ -60,7 +60,7 @@ async function handleSave(req: NextApiRequest, res: NextApiResponse<ApiResponse<
       apiKey,
       apiPassword,
       shop,
-      plan || "basic",
+      plan || "starter",
       new Date().toISOString(),
       existing.id,
     ]);
@@ -69,7 +69,7 @@ async function handleSave(req: NextApiRequest, res: NextApiResponse<ApiResponse<
     const id = generateId("settings");
     await db.run(
       "INSERT INTO settings (id, apiKey, apiPassword, shop, plan, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [id, apiKey, apiPassword, shop, plan || "basic", new Date().toISOString(), new Date().toISOString()]
+      [id, apiKey, apiPassword, shop, plan || "starter", new Date().toISOString(), new Date().toISOString()]
     );
   }
 

@@ -27,6 +27,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       return res.status(401).json({ success: false, error: "Not authenticated. Please complete OAuth first." });
     }
 
+    const settings = await db.get("SELECT plan FROM settings WHERE shop = ? LIMIT 1", [shop]);
+    const rawPlan = (settings?.plan || "starter") as string;
+    const normalizedPlan =
+      rawPlan === "basic"
+        ? "starter"
+        : rawPlan === "pro" || rawPlan === "advanced"
+        ? "premium"
+        : rawPlan;
+
+    if (normalizedPlan === "starter") {
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+
+      const usage = await db.get(
+        `
+        SELECT COUNT(DISTINCT changeGroupId) as count
+        FROM priceHistory
+        WHERE timestamp >= ?
+          AND changeGroupId IS NOT NULL
+      `,
+        [monthStart.toISOString()]
+      );
+
+      const monthlyChanges = usage?.count || 0;
+      const starterLimit = 5;
+
+      if (monthlyChanges >= starterLimit) {
+        return res.status(402).json({
+          success: false,
+          error: `Starter plan limit reached (${starterLimit} bulk price changes/month). Upgrade to Premium for unlimited changes.`,
+          data: {
+            code: "PLAN_LIMIT_REACHED",
+            plan: normalizedPlan,
+            limit: starterLimit,
+            used: monthlyChanges,
+          },
+        });
+      }
+    }
+
     // Create GraphQL client
     const client = new shopify.clients.Graphql({ session });
 

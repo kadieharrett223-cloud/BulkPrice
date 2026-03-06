@@ -128,7 +128,7 @@ export interface AppSettings {
   apiKey: string;
   apiPassword: string;
   shop: string;
-  plan: "basic" | "pro" | "advanced";
+  plan: "starter" | "premium" | "basic" | "pro" | "advanced";
 }
 
 // API Response types

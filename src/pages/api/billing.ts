@@ -28,12 +28,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "POST") {
       // Create new subscription
       const { plan } = req.body;
+      const normalizedPlan =
+        plan === "pro" || plan === "advanced"
+          ? "premium"
+          : plan === "basic"
+          ? "starter"
+          : plan;
 
-      if (!plan || !BILLING_PLANS[plan]) {
+      if (!normalizedPlan || !BILLING_PLANS[normalizedPlan]) {
         return res.status(400).json({ error: "Invalid plan" });
       }
 
-      const confirmationUrl = await createRecurringCharge(session, plan);
+      const confirmationUrl = await createRecurringCharge(session, normalizedPlan);
 
       return res.json({
         success: true,

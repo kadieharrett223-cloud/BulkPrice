@@ -9,29 +9,27 @@ export interface BillingPlan {
 }
 
 export const BILLING_PLANS: Record<string, BillingPlan> = {
-  basic: {
-    name: "Basic Plan",
+  starter: {
+    name: "Starter Plan",
     price: 1.99,
     trialDays: 7,
     features: [
-      "Update up to 1,000 products",
-      "Basic filters (collection, vendor, type)",
+      "5 bulk price changes per month",
+      "Bulk price updates",
       "Price history",
       "Rollback support",
       "CSV import/export",
     ],
   },
-  pro: {
-    name: "Pro Plan",
-    price: 5.00,
+  premium: {
+    name: "Premium Plan",
+    price: 9.99,
     trialDays: 7,
     features: [
-      "Unlimited products",
-      "Advanced filters (inventory, status, tags)",
+      "Unlimited bulk price changes",
       "Scheduled price changes",
-      "Flash sales automation",
-      "Bulk variant editing",
-      "Compare-at price editing",
+      "Advanced filters",
+      "Margin protection",
       "Priority support",
     ],
   },

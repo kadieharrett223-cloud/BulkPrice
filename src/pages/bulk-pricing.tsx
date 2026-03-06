@@ -205,7 +205,14 @@ export default function BulkPricingPage() {
     } catch (error: any) {
       clearInterval(progressTimer);
       setRunProgress(0);
-      toast.error(error.response?.data?.error || "Failed to apply changes");
+      const statusCode = error?.response?.status;
+      const message = error?.response?.data?.error || "Failed to apply changes";
+
+      if (statusCode === 402) {
+        toast.error(`${message} Use the Upgrade button in the top bar to switch to Premium.`);
+      } else {
+        toast.error(message);
+      }
     } finally {
       clearInterval(progressTimer);
       setLoading(false);
