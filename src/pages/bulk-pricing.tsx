@@ -1,16 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
-  CheckCircle,
   AlertCircle,
+  CheckCircle,
+  ChevronRight,
   Loader,
   RotateCcw,
 } from "lucide-react";
 import { PriceFilter, PriceAction, PricePreview } from "@/types";
-import FilterStep from "@components/bulk-pricing/FilterStep";
-import ActionStep from "@components/bulk-pricing/ActionStep";
-import PreviewStep from "@components/bulk-pricing/PreviewStep";
-import ConfirmStep from "@components/bulk-pricing/ConfirmStep";
 import axios from "axios";
 import Link from "next/link";
 
@@ -24,7 +21,7 @@ const STEPS: Array<{ key: Step; title: string }> = [
 ];
 
 export default function BulkPricingPage() {
-  const [currentStep, setCurrentStep] = useState<Step>("filter");
+  const [currentStep, setCurrentStep] = useState<Step>("action");
   const [filters, setFilters] = useState<PriceFilter>({});
   const [action, setAction] = useState<PriceAction>({ type: "percentage_increase", value: 10 });
   const [preview, setPreview] = useState<PricePreview[]>([]);
@@ -39,31 +36,103 @@ export default function BulkPricingPage() {
     durationMs: number;
   } | null>(null);
 
-  const handleFilterNext = async (newFilters: PriceFilter) => {
-    setFilters(newFilters);
+  const [collectionInput, setCollectionInput] = useState("");
+  const [vendorInput, setVendorInput] = useState("");
+  const [productTypeInput, setProductTypeInput] = useState("");
+  const [status, setStatus] = useState<"active" | "draft" | "archived" | "">("");
+  const [priceMin, setPriceMin] = useState(0);
+  const [priceMax, setPriceMax] = useState(300);
+  const [inventoryMin, setInventoryMin] = useState(0);
+  const [inventoryMax, setInventoryMax] = useState(500);
+  const [acknowledged, setAcknowledged] = useState(false);
+
+  const activeStepIndex = STEPS.findIndex((item) => item.key === currentStep);
+
+  const summaryRuleText = useMemo(() => {
+    const value = action.value ?? 0;
+    switch (action.type) {
+      case "percentage_increase":
+        return `Increase prices by +${value}%`;
+      case "percentage_decrease":
+        return `Decrease prices by -${value}%`;
+      case "fixed_increase":
+        return `Increase prices by +$${value}`;
+      case "fixed_decrease":
+        return `Decrease prices by -$${value}`;
+      case "exact":
+        return `Set exact price to $${value}`;
+      case "round":
+        return `Round prices to ${action.roundTo || ".99"}`;
+      default:
+        return "No active pricing rule";
+    }
+  }, [action]);
+
+  const applyFilters = async () => {
+    const nextFilters: PriceFilter = {};
+
+    if (collectionInput.trim()) {
+      nextFilters.collections = [collectionInput.trim()];
+    }
+    if (vendorInput.trim()) {
+      nextFilters.vendors = [vendorInput.trim()];
+    }
+    if (productTypeInput.trim()) {
+      nextFilters.productTypes = [productTypeInput.trim()];
+    }
+    if (status) {
+      nextFilters.statuses = [status];
+    }
+    if (priceMin > 0 || priceMax < 300) {
+      nextFilters.priceRange = { min: priceMin, max: priceMax };
+    }
+    if (inventoryMin > 0 || inventoryMax < 500) {
+      nextFilters.inventoryRange = { min: inventoryMin, max: inventoryMax };
+    }
+
+    setFilters(nextFilters);
 
     try {
-      const response = await axios.post("/api/preview-count", {
-        filters: newFilters,
-      });
+      const response = await axios.post("/api/preview-count", { filters: nextFilters });
+      if (response.data.success) {
+        setMatchingCount(response.data.data.count || 0);
+        toast.success("Filters applied");
+      }
+      setCurrentStep("action");
+    } catch {
+      setMatchingCount(0);
+      toast.error("Failed to apply filters");
+    }
+  };
+
+  const resetFilters = async () => {
+    setCollectionInput("");
+    setVendorInput("");
+    setProductTypeInput("");
+    setStatus("");
+    setPriceMin(0);
+    setPriceMax(300);
+    setInventoryMin(0);
+    setInventoryMax(500);
+    setFilters({});
+
+    try {
+      const response = await axios.post("/api/preview-count", { filters: {} });
       if (response.data.success) {
         setMatchingCount(response.data.data.count || 0);
       }
     } catch {
       setMatchingCount(0);
     }
-
-    setCurrentStep("action");
   };
 
-  const handleActionNext = async (newAction: PriceAction) => {
-    setAction(newAction);
+  const generatePreview = async () => {
     setLoading(true);
 
     try {
       const response = await axios.post("/api/preview-prices", {
         filters,
-        action: newAction,
+        action,
       });
 
       if (response.data.success) {
@@ -78,15 +147,12 @@ export default function BulkPricingPage() {
     }
   };
 
-  const handlePreviewBack = () => {
-    setCurrentStep("action");
-  };
-
-  const handlePreviewNext = () => {
-    setCurrentStep("confirm");
-  };
-
   const handleConfirm = async () => {
+    if (!acknowledged) {
+      toast.error("Please acknowledge before applying changes");
+      return;
+    }
+
     setLoading(true);
     setRunProgress(8);
 
@@ -122,13 +188,12 @@ export default function BulkPricingPage() {
         );
         // Reset
         setTimeout(() => {
-          setCurrentStep("filter");
-          setFilters({});
+          setCurrentStep("action");
           setAction({ type: "percentage_increase", value: 10 });
           setPreview([]);
           setChangeGroupId("");
-          setMatchingCount(0);
           setRunProgress(0);
+          setAcknowledged(false);
         }, 2000);
       }
     } catch (error: any) {
@@ -170,158 +235,329 @@ export default function BulkPricingPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Bulk Price Editor</h1>
-        <p className="text-gray-600">
-          Run flash sales and bulk price updates with smart filters, preview, and rollback
-        </p>
-      </div>
+    <div className="h-full bg-gray-50">
+      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr_320px] gap-6 p-6">
+        <aside className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 h-fit">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Products</h2>
 
-      {/* Progress Indicator */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          {STEPS.map((step, index) => {
-            const activeIndex = STEPS.findIndex((item) => item.key === currentStep);
-            const isCurrent = currentStep === step.key;
-            const isCompleted = index < activeIndex;
-
-            return (
-              <div key={step.key} className="flex items-center flex-1">
-                <div className="flex flex-col items-center min-w-[110px]">
-                  <div
-                    className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${
-                      isCurrent
-                        ? "bg-shopify text-white ring-4 ring-shopify ring-opacity-20"
-                        : isCompleted
-                        ? "bg-shopify/20 text-shopify"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {isCompleted ? "✓" : index + 1}
-                  </div>
-                  <span className={`mt-2 text-xs font-semibold ${isCurrent ? "text-shopify" : "text-gray-600"}`}>
-                    {step.title}
-                  </span>
-                </div>
-                {index < STEPS.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 ${isCompleted ? "bg-shopify" : "bg-gray-200"}`} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4 bg-gray-100 h-2 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-shopify transition-all duration-500"
-            style={{
-              width: `${((STEPS.findIndex((item) => item.key === currentStep) + 1) / STEPS.length) * 100}%`,
-            }}
-          />
-        </div>
-      </div>
-
-      {currentStep !== "filter" && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-wrap items-center gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Products matching filters</p>
-            <p className="text-2xl font-bold text-blue-900">{matchingCount}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Estimated API operations</p>
-            <p className="text-2xl font-bold text-blue-900">{matchingCount}</p>
-          </div>
-          <p className="text-sm text-blue-800">
-            {matchingCount === 0
-              ? "No products match these filters. Adjust filters before continuing."
-              : `${matchingCount} variants selected and ready for bulk update.`}
-          </p>
-        </div>
-      )}
-
-      {loading && currentStep === "confirm" && (
-        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2 mb-2 text-amber-800 font-semibold">
-            <Loader className="w-4 h-4 animate-spin" />
-            <span>Updating products...</span>
-          </div>
-          <div className="bg-amber-100 rounded-full h-2 overflow-hidden">
-            <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${runProgress}%` }} />
-          </div>
-          <p className="text-sm text-amber-700 mt-2">
-            {Math.floor((preview.length * runProgress) / 100)} / {preview.length} processed
-          </p>
-        </div>
-      )}
-
-      {lastRunSummary && !loading && (
-        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-start space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-700 mt-0.5" />
+          <div className="space-y-4 text-sm">
             <div>
-              <p className="font-semibold text-green-900">Bulk update completed</p>
-              <p className="text-sm text-green-800">
-                Products updated: {lastRunSummary.affectedCount} • Failed: {lastRunSummary.failedCount} • Duration: {(lastRunSummary.durationMs / 1000).toFixed(1)}s
+              <label className="block text-xs text-gray-500 mb-1">Collections</label>
+              <input
+                value={collectionInput}
+                onChange={(event) => setCollectionInput(event.target.value)}
+                placeholder="Select collections"
+                className="w-full border border-gray-200 rounded-md px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Vendors</label>
+              <input
+                value={vendorInput}
+                onChange={(event) => setVendorInput(event.target.value)}
+                placeholder="Select vendors"
+                className="w-full border border-gray-200 rounded-md px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Product Types</label>
+              <input
+                value={productTypeInput}
+                onChange={(event) => setProductTypeInput(event.target.value)}
+                placeholder="Select product types"
+                className="w-full border border-gray-200 rounded-md px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Price range</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={priceMin}
+                  onChange={(event) => setPriceMin(Number(event.target.value))}
+                  className="w-full border border-gray-200 rounded-md px-2 py-2"
+                />
+                <span className="text-gray-500">-</span>
+                <input
+                  type="number"
+                  value={priceMax}
+                  onChange={(event) => setPriceMax(Number(event.target.value))}
+                  className="w-full border border-gray-200 rounded-md px-2 py-2"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Inventory range</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={inventoryMin}
+                  onChange={(event) => setInventoryMin(Number(event.target.value))}
+                  className="w-full border border-gray-200 rounded-md px-2 py-2"
+                />
+                <span className="text-gray-500">-</span>
+                <input
+                  type="number"
+                  value={inventoryMax}
+                  onChange={(event) => setInventoryMax(Number(event.target.value))}
+                  className="w-full border border-gray-200 rounded-md px-2 py-2"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Status</label>
+              <select
+                value={status}
+                onChange={(event) => setStatus(event.target.value as "active" | "draft" | "archived" | "")}
+                className="w-full border border-gray-200 rounded-md px-3 py-2"
+              >
+                <option value="">Any status</option>
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+
+            <button
+              onClick={applyFilters}
+              className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
+            >
+              Apply Filters
+            </button>
+
+            <p className="text-sm text-gray-600 text-center">{matchingCount} matching products</p>
+
+            <button
+              onClick={resetFilters}
+              className="w-full border border-gray-200 bg-gray-50 text-gray-700 py-2 rounded-md"
+            >
+              Reset filters
+            </button>
+          </div>
+        </aside>
+
+        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+          <div className="flex items-center gap-6 mb-6 overflow-x-auto pb-1">
+            {STEPS.map((step, index) => (
+              <div key={step.key} className="flex items-center gap-2 whitespace-nowrap">
+                <div
+                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold ${
+                    index === activeStepIndex
+                      ? "bg-blue-600 text-white"
+                      : index < activeStepIndex
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  {index + 1}
+                </div>
+                <span className="text-sm text-gray-700">{step.title}</span>
+                {index < STEPS.length - 1 && <ChevronRight className="w-4 h-4 text-gray-300" />}
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-4">
+            <h1 className="text-2xl font-semibold text-gray-900">Bulk Pricing</h1>
+            <p className="text-sm text-gray-500">Set a pricing rule after applying filters</p>
+          </div>
+
+          <div className="space-y-4 mb-6">
+            <select
+              value={action.type}
+              onChange={(event) => setAction({ ...action, type: event.target.value as PriceAction["type"] })}
+              className="w-full border border-gray-200 rounded-md p-2 text-sm"
+            >
+              <option value="percentage_increase">Increase prices by</option>
+              <option value="percentage_decrease">Decrease prices by</option>
+              <option value="fixed_increase">Increase by fixed amount</option>
+              <option value="fixed_decrease">Decrease by fixed amount</option>
+              <option value="exact">Set exact price</option>
+              <option value="round">Round prices</option>
+            </select>
+
+            {action.type !== "round" ? (
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  value={action.value ?? 0}
+                  onChange={(event) => setAction({ ...action, value: Number(event.target.value) })}
+                  className="border border-gray-200 rounded-md p-2 w-32 text-sm"
+                />
+                <span className="text-gray-600 text-sm">
+                  {action.type.includes("percentage") ? "%" : "$"}
+                </span>
+              </div>
+            ) : (
+              <select
+                value={action.roundTo || ".99"}
+                onChange={(event) =>
+                  setAction({ ...action, roundTo: event.target.value as ".99" | ".95" | ".00" })
+                }
+                className="border border-gray-200 rounded-md p-2 w-44 text-sm"
+              >
+                <option value=".99">Round to .99</option>
+                <option value=".95">Round to .95</option>
+                <option value=".00">Round to .00</option>
+              </select>
+            )}
+          </div>
+
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <table className="w-full mt-0">
+              <thead className="text-xs text-gray-500 border-b bg-gray-50">
+                <tr>
+                  <th className="py-3 px-3 text-left"></th>
+                  <th className="py-3 px-3 text-left">Product</th>
+                  <th className="py-3 px-3 text-right">Current Price</th>
+                  <th className="py-3 px-3 text-right">New Price</th>
+                  <th className="py-3 px-3 text-right">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(preview.length ? preview.slice(0, 8) : []).map((item) => (
+                  <tr key={item.variantId} className="border-b text-sm">
+                    <td className="py-3 px-3">
+                      <input type="checkbox" defaultChecked />
+                    </td>
+                    <td className="py-3 px-3 text-gray-900">
+                      {item.productTitle}
+                      <span className="text-xs text-gray-500 ml-2">{item.variantTitle}</span>
+                    </td>
+                    <td className="py-3 px-3 text-right">${item.oldPrice.toFixed(2)}</td>
+                    <td className="py-3 px-3 text-right">${item.newPrice.toFixed(2)}</td>
+                    <td className={`py-3 px-3 text-right font-semibold ${item.change >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {item.change >= 0 ? "+" : ""}
+                      {item.change.toFixed(2)}%
+                    </td>
+                  </tr>
+                ))}
+                {preview.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-sm text-gray-500">
+                      No preview data yet. Apply filters and click Preview Changes.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {loading && (
+            <div className="mt-4">
+              <div className="flex items-center space-x-2 mb-2 text-sm text-gray-700">
+                <Loader className="w-4 h-4 animate-spin" />
+                <span>Updating products...</span>
+              </div>
+              <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${runProgress}%` }} />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {Math.floor((preview.length * runProgress) / 100)} / {preview.length} completed
+              </p>
+            </div>
+          )}
+
+          {currentStep === "preview" && (
+            <div className="mt-4 border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+              <p className="text-sm text-yellow-900 font-medium mb-2">
+                ⚠ You are about to update {preview.length} products. This action will modify live prices.
+              </p>
+              <label className="flex items-start gap-2 text-sm text-yellow-800">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={(event) => setAcknowledged(event.target.checked)}
+                  className="mt-0.5"
+                />
+                I understand these changes will update store prices.
+              </label>
+            </div>
+          )}
+
+          {lastRunSummary && !loading && (
+            <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-700 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-green-900">Bulk update completed</p>
+                  <p className="text-sm text-green-800">
+                    Products updated: {lastRunSummary.affectedCount} • Failed: {lastRunSummary.failedCount} • Duration: {(lastRunSummary.durationMs / 1000).toFixed(1)}s
+                  </p>
+                </div>
+              </div>
+              <Link href="/history" className="bg-green-700 text-white px-4 py-2 rounded-md hover:bg-green-800">
+                View History
+              </Link>
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center justify-end gap-3">
+            <button
+              onClick={() => {
+                setCurrentStep("preview");
+                generatePreview();
+              }}
+              disabled={loading || matchingCount === 0}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md disabled:opacity-50"
+            >
+              Preview Changes
+            </button>
+            <button
+              onClick={() => {
+                setCurrentStep("confirm");
+                handleConfirm();
+              }}
+              disabled={loading || preview.length === 0 || !acknowledged}
+              className="border border-gray-200 bg-white text-gray-800 px-6 py-2 rounded-md disabled:opacity-50"
+            >
+              Review & Apply
+            </button>
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
+            <div className="text-sm text-gray-600 space-y-2">
+              <p>{matchingCount} products selected</p>
+              <p>Estimated {matchingCount} operations</p>
+            </div>
+
+            <div className="mt-4 bg-gray-100 p-3 rounded">
+              <p className="text-sm text-gray-700">
+                {summaryRuleText.includes("+") ? "Increase prices by" : "Active rule"}
+                <span className="text-green-600 font-semibold ml-1">{summaryRuleText.replace("Increase prices by ", "")}</span>
               </p>
             </div>
           </div>
-          <Link href="/history" className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">
-            View History
-          </Link>
-        </div>
-      )}
 
-      {/* Step Content */}
-      <div className="bg-white rounded-lg shadow-md p-8 mb-8">
-        {currentStep === "filter" && (
-          <FilterStep onNext={handleFilterNext} />
-        )}
-        {currentStep === "action" && (
-          <ActionStep
-            onNext={handleActionNext}
-            onBack={() => setCurrentStep("filter")}
-            loading={loading}
-            matchingCount={matchingCount}
-          />
-        )}
-        {currentStep === "preview" && (
-          <PreviewStep
-            preview={preview}
-            onBack={handlePreviewBack}
-            onNext={handlePreviewNext}
-          />
-        )}
-        {currentStep === "confirm" && (
-          <ConfirmStep
-            affectedCount={preview.length}
-            onConfirm={handleConfirm}
-            onBack={() => setCurrentStep("preview")}
-            loading={loading}
-            progress={runProgress}
-          />
-        )}
-      </div>
-
-      {/* Rollback Button */}
-      {lastChangeGroupId && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <AlertCircle className="w-5 h-5 text-yellow-600" />
-            <div>
-              <p className="font-semibold text-yellow-900">Last change can be undone</p>
-              <p className="text-sm text-yellow-700">You can rollback the previous price change</p>
+          {lastChangeGroupId && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3 mb-3">
+                <AlertCircle className="w-5 h-5 text-yellow-700 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-yellow-900">Rollback available</p>
+                  <p className="text-sm text-yellow-700">Undo the latest bulk price update.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleRollback}
+                disabled={loading}
+                className="w-full flex items-center justify-center space-x-2 bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 disabled:opacity-50"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Undo Changes</span>
+              </button>
             </div>
-          </div>
-          <button
-            onClick={handleRollback}
-            disabled={loading}
-            className="flex items-center space-x-2 bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Undo Changes</span>
-          </button>
-        </div>
-      )}
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

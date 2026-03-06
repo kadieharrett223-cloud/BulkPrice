@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 body {
-  @apply bg-white text-gray-900 antialiased;
+  @apply bg-gray-50 text-gray-900 antialiased font-sans;
 }
 
 .btn-primary {
-  @apply bg-shopify text-white font-semibold py-2 px-4 rounded-lg hover:bg-opacity-90 transition-all;
+  @apply bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition-all;
 }
 
 .btn-secondary {
-  @apply bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-all;
+  @apply bg-white border border-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-md hover:bg-gray-50 transition-all;
 }
 
 .btn-danger {

@@ -3,13 +3,17 @@ import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
 import Navigation from "@components/Navigation";
 import { ShopifyAppProvider } from "@components/ShopifyAppProvider";
+import { useRouter } from "next/router";
 
 export default function App({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+  const isBulkPricingPage = router.pathname === "/bulk-pricing";
+
   return (
     <ShopifyAppProvider>
       <div className="min-h-screen bg-gray-50">
         <Navigation />
-        <main className="container mx-auto py-8">
+        <main className={isBulkPricingPage ? "" : "container mx-auto py-8"}>
           <Component {...pageProps} />
         </main>
       </div>
