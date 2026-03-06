@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { shopify } from "@/lib/shopify-config";
 import { sessionStorage } from "@/lib/session-storage";
 import { initDb } from "@/lib/db";
+import { getRawBody, validateWebhook } from "@/lib/webhook-utils";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -9,12 +9,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Verify webhook is from Shopify
-    const isValid = await shopify.webhooks.validate({
-      rawBody: JSON.stringify(req.body),
-      rawRequest: req,
-      rawResponse: res,
-    });
+    const rawBody = await getRawBody(req);
+    const isValid = await validateWebhook(req, res, rawBody);
 
     if (!isValid) {
       return res.status(401).json({ error: "Invalid webhook" });
