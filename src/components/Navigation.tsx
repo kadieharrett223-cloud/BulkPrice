@@ -28,10 +28,10 @@ export default function Navigation() {
                 <Link
                   key={href}
                   href={href}
-                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                  className={`inline-flex items-center gap-2 px-3 py-2 border-b-2 transition-colors ${
                     isActive
-                      ? "text-blue-600 font-medium bg-blue-50"
-                      : "text-gray-600 hover:bg-gray-100"
+                      ? "text-blue-600 font-medium border-blue-600"
+                      : "text-gray-600 border-transparent hover:text-gray-900"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
