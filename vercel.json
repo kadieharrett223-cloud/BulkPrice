@@ -1,16 +1,5 @@
 {
   "version": 2,
-  "env": {
-    "SHOPIFY_API_KEY": "@shopify-api-key",
-    "SHOPIFY_API_SECRET": "@shopify-api-secret",
-    "SHOPIFY_APP_URL": "@shopify-app-url",
-    "POSTGRES_URL": "@supabase-postgres-url"
-  },
-  "build": {
-    "env": {
-      "NODE_ENV": "production"
-    }
-  },
   "functions": {
     "src/pages/api/**/*.ts": {
       "maxDuration": 30
