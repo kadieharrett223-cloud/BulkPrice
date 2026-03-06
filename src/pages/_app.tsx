@@ -2,10 +2,11 @@ import "@styles/globals.css";
 import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
 import Navigation from "@components/Navigation";
+import { ShopifyAppProvider } from "@components/ShopifyAppProvider";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <>
+    <ShopifyAppProvider>
       <div className="min-h-screen bg-gray-50">
         <Navigation />
         <main className="container mx-auto py-8">
@@ -34,6 +35,6 @@ export default function App({ Component, pageProps }: AppProps) {
           },
         }}
       />
-    </>
+    </ShopifyAppProvider>
   );
 }

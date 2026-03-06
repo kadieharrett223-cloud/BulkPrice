@@ -1,0 +1,26 @@
+# Shopify App Configuration
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
+
+name = "bulkprice"
+client_id = "YOUR_CLIENT_ID_FROM_SHOPIFY_PARTNERS"
+application_url = "https://your-app.vercel.app"
+embedded = true
+
+[access_scopes]
+scopes = "read_products,write_products,read_inventory,write_inventory,read_price_rules,write_price_rules"
+
+[auth]
+redirect_urls = [
+  "https://your-app.vercel.app/api/auth/callback",
+  "http://localhost:3000/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+[[webhooks.subscriptions]]
+topics = [ "app/uninstalled" ]
+uri = "/api/webhooks/app-uninstalled"
+
+[pos]
+embedded = false
