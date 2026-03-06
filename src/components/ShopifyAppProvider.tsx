@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 import createApp from "@shopify/app-bridge";
 
@@ -8,20 +8,23 @@ interface ShopifyAppProviderProps {
 
 export function ShopifyAppProvider({ children }: ShopifyAppProviderProps) {
   const router = useRouter();
-  const [appBridge, setAppBridge] = useState<any>(null);
 
   useEffect(() => {
-    const { shop, host } = router.query;
+    const { host } = router.query;
+    const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
 
-    if (shop && host && typeof shop === "string" && typeof host === "string") {
-      const config = {
-        apiKey: process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || "",
-        host: host,
+    if (!apiKey || typeof host !== "string" || !host.trim()) {
+      return;
+    }
+
+    try {
+      createApp({
+        apiKey,
+        host,
         forceRedirect: true,
-      };
-
-      const app = createApp(config);
-      setAppBridge(app);
+      });
+    } catch (error) {
+      console.error("Failed to initialize Shopify App Bridge:", error);
     }
   }, [router.query]);
 
