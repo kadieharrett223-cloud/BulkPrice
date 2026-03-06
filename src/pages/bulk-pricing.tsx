@@ -10,6 +10,7 @@ import {
 import { PriceFilter, PriceAction, PricePreview } from "@/types";
 import axios from "axios";
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 
 type Step = "filter" | "action" | "preview" | "confirm";
 
@@ -236,8 +237,12 @@ export default function BulkPricingPage() {
 
   return (
     <div className="h-full bg-gray-50">
-      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr_320px] gap-6 p-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_320px] gap-6 p-6">
         <aside className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 h-fit">
+          <div className="mb-5 pb-4 border-b border-blue-100">
+            <BrandLogo href="/bulk-pricing" />
+          </div>
+
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Products</h2>
 
           <div className="space-y-4 text-sm">
@@ -325,7 +330,7 @@ export default function BulkPricingPage() {
 
             <button
               onClick={applyFilters}
-              className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
+              className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md border border-amber-300/60"
             >
               Apply Filters
             </button>
@@ -348,7 +353,7 @@ export default function BulkPricingPage() {
                 <div
                   className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold ${
                     index === activeStepIndex
-                      ? "bg-blue-600 text-white"
+                      ? "bg-blue-600 text-white ring-2 ring-amber-300/70"
                       : index < activeStepIndex
                       ? "bg-blue-100 text-blue-700"
                       : "bg-gray-200 text-gray-600"
@@ -362,7 +367,7 @@ export default function BulkPricingPage() {
             ))}
           </div>
 
-          <div className="mb-4">
+          <div className="mb-4 border-l-4 border-amber-400 pl-3">
             <h1 className="text-2xl font-semibold text-gray-900">Bulk Pricing</h1>
             <p className="text-sm text-gray-500">Set a pricing rule after applying filters</p>
           </div>
@@ -504,7 +509,7 @@ export default function BulkPricingPage() {
                 generatePreview();
               }}
               disabled={loading || matchingCount === 0}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md disabled:opacity-50 border border-amber-300/60"
             >
               Preview Changes
             </button>
@@ -529,10 +534,11 @@ export default function BulkPricingPage() {
               <p>Estimated {matchingCount} operations</p>
             </div>
 
-            <div className="mt-4 bg-gray-100 p-3 rounded">
+            <div className="mt-4 bg-blue-50 border border-blue-100 p-3 rounded">
+              <p className="text-xs uppercase tracking-wide text-amber-600 font-semibold mb-1">Active rule</p>
               <p className="text-sm text-gray-700">
                 {summaryRuleText.includes("+") ? "Increase prices by" : "Active rule"}
-                <span className="text-green-600 font-semibold ml-1">{summaryRuleText.replace("Increase prices by ", "")}</span>
+                <span className="text-blue-700 font-semibold ml-1">{summaryRuleText.replace("Increase prices by ", "")}</span>
               </p>
             </div>
           </div>
