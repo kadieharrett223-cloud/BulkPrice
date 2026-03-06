@@ -9,6 +9,7 @@ import { useState } from "react";
 export default function Navigation() {
   const router = useRouter();
   const [upgrading, setUpgrading] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
 
   const links = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -17,11 +18,13 @@ export default function Navigation() {
     { href: "/history", label: "History", icon: FileText },
   ];
 
-  const handleUpgrade = async () => {
+  const handlePlanCheckout = async (plan: "starter" | "premium") => {
     if (upgrading) return;
 
     setUpgrading(true);
-    const toastId = toast.loading("Starting upgrade checkout...");
+    const toastId = toast.loading(
+      plan === "premium" ? "Starting Premium checkout..." : "Starting Starter checkout..."
+    );
 
     try {
       const urlShop = typeof router.query.shop === "string" ? router.query.shop : "";
@@ -34,11 +37,12 @@ export default function Navigation() {
       }
 
       const response = await axios.post(`/api/billing?shop=${encodeURIComponent(shop)}`, {
-        plan: "premium",
+        plan,
       });
 
       if (response.data?.success && response.data?.confirmationUrl) {
         toast.success("Redirecting to Shopify billing confirmation...", { id: toastId });
+        setShowPlans(false);
         window.location.href = response.data.confirmationUrl;
         return;
       }
@@ -83,14 +87,65 @@ export default function Navigation() {
           <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-medium">
             pri
           </span>
-          <button
-            onClick={handleUpgrade}
-            disabled={upgrading}
-            className="bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-800 hover:to-blue-700 text-white text-sm px-3 py-1.5 rounded-md border border-amber-300/60 disabled:opacity-60"
-          >
-            {upgrading ? "Upgrading..." : "Upgrade"}
-          </button>
-          <ChevronDown className="w-4 h-4 text-gray-500" />
+          <div className="relative">
+            <button
+              onClick={() => setShowPlans((value) => !value)}
+              className="bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-800 hover:to-blue-700 text-white text-sm px-3 py-1.5 rounded-md border border-amber-300/60 inline-flex items-center gap-1"
+            >
+              Upgrade
+              <ChevronDown className={`w-4 h-4 transition-transform ${showPlans ? "rotate-180" : ""}`} />
+            </button>
+
+            {showPlans && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
+                <p className="text-sm font-semibold text-gray-900 mb-2">Choose a plan</p>
+
+                <div className="space-y-2">
+                  <div className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Starter</p>
+                        <p className="text-xs text-gray-600">$1.99/month · 5 bulk changes/month</p>
+                      </div>
+                      <button
+                        onClick={() => handlePlanCheckout("starter")}
+                        disabled={upgrading}
+                        className="text-xs px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {upgrading ? "Loading..." : "Select"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border border-blue-200 bg-blue-50 rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-blue-900">Premium</p>
+                        <p className="text-xs text-blue-700">$5.99/month · Unlimited bulk changes</p>
+                      </div>
+                      <button
+                        onClick={() => handlePlanCheckout("premium")}
+                        disabled={upgrading}
+                        className="text-xs px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {upgrading ? "Loading..." : "Upgrade"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-gray-100 text-right">
+                  <Link
+                    href="/settings"
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                    onClick={() => setShowPlans(false)}
+                  >
+                    Manage billing settings
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

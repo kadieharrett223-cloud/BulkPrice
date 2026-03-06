@@ -160,7 +160,7 @@ export default function SettingsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-shopify"
               >
                 <option value="starter">Starter - $1.99/month (5 bulk changes/month)</option>
-                <option value="premium">Premium - $9.99/month (unlimited bulk changes)</option>
+                <option value="premium">Premium - $5.99/month (unlimited bulk changes)</option>
               </select>
             </div>
 

@@ -23,7 +23,7 @@ export const BILLING_PLANS: Record<string, BillingPlan> = {
   },
   premium: {
     name: "Premium Plan",
-    price: 9.99,
+    price: 5.99,
     trialDays: 7,
     features: [
       "Unlimited bulk price changes",
