@@ -38,8 +38,17 @@ export class SessionStorage {
       };
 
       await db.run(
-        `INSERT OR REPLACE INTO sessions (id, shop, state, isOnline, scope, expires, accessToken, onlineAccessInfo, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sessions (id, shop, state, isOnline, scope, expires, accessToken, onlineAccessInfo, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           shop = excluded.shop,
+           state = excluded.state,
+           isOnline = excluded.isOnline,
+           scope = excluded.scope,
+           expires = excluded.expires,
+           accessToken = excluded.accessToken,
+           onlineAccessInfo = excluded.onlineAccessInfo,
+           updatedAt = excluded.updatedAt`,
         [
           sessionData.id,
           sessionData.shop,

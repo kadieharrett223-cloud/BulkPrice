@@ -3,14 +3,14 @@ import { open, Database } from "sqlite";
 import { DB_SCHEMA } from "./db-schema";
 import { PG_SCHEMA } from "./db-schema-postgres";
 import path from "path";
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
 
 let db: Database | null = null;
-let usePostgres = false;
+let pool: Pool | null = null;
 
-// Check if we should use Postgres (Vercel/production) or SQLite (local dev)
-const isProduction = process.env.NODE_ENV === "production" || process.env.POSTGRES_URL;
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const postgresUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const sqlitePath = process.env.SQLITE_DATABASE_PATH || path.join(process.cwd(), "data", "app.db");
+const isPostgresConnection = Boolean(postgresUrl && postgresUrl.startsWith("postgres"));
 
 // Universal database adapter
 export interface DbAdapter {
@@ -23,23 +23,28 @@ export interface DbAdapter {
 let pgClient: any = null;
 
 async function initPostgres(): Promise<DbAdapter> {
-  if (!connectionString) {
+  if (!postgresUrl) {
     throw new Error("POSTGRES_URL environment variable required for production");
   }
 
-  const sql = neon(connectionString);
+  pool = new Pool({
+    connectionString: postgresUrl,
+    ssl: postgresUrl.includes("localhost") ? false : { rejectUnauthorized: false },
+  });
+
+  const client = await pool.connect();
 
   // Initialize schema - split into individual statements
   try {
-    const statements = PG_SCHEMA.split(';').filter(s => s.trim());
+    const statements = PG_SCHEMA.split(";").filter((s) => s.trim());
     for (const statement of statements) {
       if (statement.trim()) {
         try {
-          await sql.unsafe(statement);
+          await client.query(statement);
         } catch (err) {
-          // Ignore table already exists errors
-          if (!(err as any).message?.includes('already exists')) {
-            console.error('Schema statement error:', err);
+          const message = (err as any)?.message || "";
+          if (!message.includes("already exists")) {
+            console.error("Schema statement error:", err);
           }
         }
       }
@@ -47,42 +52,86 @@ async function initPostgres(): Promise<DbAdapter> {
     console.log("PostgreSQL database initialized successfully");
   } catch (error) {
     console.log("Schema initialization error:", error);
+  } finally {
+    client.release();
   }
 
-  // Helper to build parameterized query
-  function buildQuery(query: string, params: any[] = []) {
-    let paramIndex = 0;
+  function toPgQuery(query: string): string {
+    let index = 0;
     return query.replace(/\?/g, () => {
-      const value = params[paramIndex++];
-      if (value === null || value === undefined) return 'NULL';
-      if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-      if (typeof value === 'number') return String(value);
-      if (typeof value === 'boolean') return value ? 'true' : 'false';
-      return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+      index += 1;
+      return `$${index}`;
     });
+  }
+
+  const keyMap: Record<string, string> = {
+    shopifyid: "shopifyId",
+    productid: "productId",
+    producttype: "productType",
+    compareatprice: "compareAtPrice",
+    variantid: "variantId",
+    oldprice: "oldPrice",
+    newprice: "newPrice",
+    oldcompareatprice: "oldCompareAtPrice",
+    newcompareatprice: "newCompareAtPrice",
+    changetype: "changeType",
+    fixedamount: "fixedAmount",
+    changegroupid: "changeGroupId",
+    starttime: "startTime",
+    endtime: "endTime",
+    autorevert: "autoRevert",
+    scheduledchangeid: "scheduledChangeId",
+    originalprice: "originalPrice",
+    affectedcount: "affectedCount",
+    variantsnapshots: "variantSnapshots",
+    expiresat: "expiresAt",
+    basecurrency: "baseCurrency",
+    currencyrates: "currencyRates",
+    lastupdated: "lastUpdated",
+    apikey: "apiKey",
+    apipassword: "apiPassword",
+    createdat: "createdAt",
+    updatedat: "updatedAt",
+    isonline: "isOnline",
+    accesstoken: "accessToken",
+    onlineaccessinfo: "onlineAccessInfo",
+    userid: "userId",
+  };
+
+  function normalizeRow(row: any): any {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      return row;
+    }
+    const normalized: Record<string, any> = {};
+    Object.entries(row).forEach(([key, value]) => {
+      const mappedKey = keyMap[key] || key;
+      normalized[mappedKey] = value;
+    });
+    return normalized;
   }
 
   // Return adapter that mimics SQLite interface
   return {
     async get(query: string, params: any[] = []) {
-      const builtQuery = params.length > 0 ? buildQuery(query, params) : query;
-      const result: any = await sql.unsafe(builtQuery);
-      return result[0] || null;
+      if (!pool) throw new Error("PostgreSQL pool not initialized");
+      const result = await pool.query(toPgQuery(query), params);
+      return result.rows[0] ? normalizeRow(result.rows[0]) : null;
     },
     async all(query: string, params: any[] = []) {
-      const builtQuery = params.length > 0 ? buildQuery(query, params) : query;
-      const result: any = await sql.unsafe(builtQuery);
-      return result;
+      if (!pool) throw new Error("PostgreSQL pool not initialized");
+      const result = await pool.query(toPgQuery(query), params);
+      return result.rows.map((row) => normalizeRow(row));
     },
     async run(query: string, params: any[] = []) {
-      const builtQuery = params.length > 0 ? buildQuery(query, params) : query;
-      return await sql.unsafe(builtQuery);
+      if (!pool) throw new Error("PostgreSQL pool not initialized");
+      return pool.query(toPgQuery(query), params);
     },
     async exec(query: string) {
-      const statements = query.split(';').filter(s => s.trim());
+      if (!pool) throw new Error("PostgreSQL pool not initialized");
+      const statements = query.split(";").filter((s) => s.trim());
       for (const statement of statements) {
         if (statement.trim()) {
-          await sql.unsafe(statement);
+          await pool.query(statement);
         }
       }
     },
@@ -90,10 +139,8 @@ async function initPostgres(): Promise<DbAdapter> {
 }
 
 async function initSQLite(): Promise<Database> {
-  const dbPath = path.join(process.cwd(), "data", "app.db");
-
   db = await open({
-    filename: dbPath,
+    filename: sqlitePath,
     driver: sqlite3.Database,
   });
 
@@ -105,7 +152,7 @@ async function initSQLite(): Promise<Database> {
   // Initialize schema
   await db.exec(DB_SCHEMA);
 
-  console.log("SQLite database initialized successfully at:", dbPath);
+  console.log("SQLite database initialized successfully at:", sqlitePath);
   return db;
 }
 
@@ -113,8 +160,7 @@ export async function initDb(): Promise<DbAdapter> {
   if (db || pgClient) return pgClient || db!;
 
   try {
-    if (isProduction && connectionString) {
-      usePostgres = true;
+    if (isPostgresConnection) {
       pgClient = await initPostgres();
       return pgClient;
     } else {
@@ -138,6 +184,10 @@ export async function closeDb(): Promise<void> {
   if (db) {
     await db.close();
     db = null;
+  }
+  if (pool) {
+    await pool.end();
+    pool = null;
   }
   pgClient = null;
 }

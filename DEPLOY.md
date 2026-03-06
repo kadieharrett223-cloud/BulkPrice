@@ -18,12 +18,13 @@ Your code is at: `https://github.com/kadieharrett223-cloud/BulkPrice`
      ```
 4. Copy your **Client ID** and **Client secret**
 
-### 3. Create Neon Postgres Database (Free Tier)
+### 3. Create Supabase Postgres Database (Free Tier)
 
-1. Go to https://neon.tech
+1. Go to https://supabase.com
 2. Sign up with GitHub
-3. Click **Create Project**
-4. Copy the **Connection String** (starts with `postgresql://`)
+3. Click **New project**
+4. Open **Project Settings** → **Database**
+5. Copy the **Connection String** (starts with `postgresql://`)
 
 ### 4. Deploy to Vercel
 
@@ -40,7 +41,7 @@ SHOPIFY_APP_URL=https://your-app.vercel.app
 NEXT_PUBLIC_SHOPIFY_API_KEY=your_client_id_from_shopify
 
 # Database (from Step 3)
-POSTGRES_URL=your_neon_connection_string
+POSTGRES_URL=your_supabase_connection_string
 
 # App Config
 NODE_ENV=production
@@ -101,23 +102,17 @@ Or use the **Test on development store** button in Partner dashboard.
 
 ### Billing Plans
 
-Your app offers 3 plans:
+Your app offers 2 plans:
 
-**Basic Plan - $9.99/month**
+**Basic Plan - $1.99/month**
 - 7-day free trial
 - Up to 1,000 products
-- Basic filters, price history, rollback
+- Basic filters, price history, rollback, CSV import/export
 
-**Pro Plan - $29.99/month** (Recommended)
+**Pro Plan - $5/month** (Recommended)
 - 7-day free trial
 - Unlimited products
-- Advanced filters, scheduled changes, flash sales
-- CSV import/export
-
-**Enterprise Plan - $99.99/month**
-- 14-day free trial
-- Everything in Pro
-- Multi-currency, API access, dedicated support
+- Advanced filters, scheduled changes, flash sales, bulk variant editing
 
 ---
 
@@ -125,7 +120,7 @@ Your app offers 3 plans:
 
 ### Database
 - **Local Development**: SQLite (automatic)
-- **Production (Vercel)**: Neon Postgres (serverless)
+- **Production (Vercel)**: Supabase Postgres (serverless)
 - Unified interface - code works in both environments
 
 ### Authentication
@@ -135,7 +130,7 @@ Your app offers 3 plans:
 
 ### Billing
 - **Shopify Billing API**: Native subscription handling
-- **Automatic trials**: 7-14 days free
+- **Automatic trials**: 7 days free
 - **Test mode**: Free during development
 
 ---
@@ -155,7 +150,7 @@ After deployment:
 
 **"Database not initialized"**
 - Make sure `POSTGRES_URL` is set in Vercel
-- Check Neon database is accessible
+- Check Supabase database is accessible
 
 **"OAuth error"**
 - Verify `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` are correct
@@ -170,5 +165,5 @@ After deployment:
 ## 📚 Documentation
 
 - [Shopify App Development](https://shopify.dev/docs/apps)
-- [Neon Postgres](https://neon.tech/docs)
+- [Supabase Postgres](https://supabase.com/docs/guides/database)
 - [Vercel Deployment](https://vercel.com/docs)
