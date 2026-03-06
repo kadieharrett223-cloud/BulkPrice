@@ -190,7 +190,7 @@ export default function Dashboard() {
       )}
 
       {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-lg">
