@@ -37,7 +37,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-12">
         <h1 className="text-5xl font-bold text-gray-900 mb-3">
-          Schedule Flash Sales with Springify
+          Schedule Flash Sales with BulkPrice
         </h1>
         <p className="text-xl text-gray-600">
           Apply bulk price changes or discounts with filters and rollback. Run

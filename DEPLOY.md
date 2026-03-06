@@ -10,7 +10,7 @@ Your code is at: `https://github.com/kadieharrett223-cloud/BulkPrice`
 1. Go to https://partners.shopify.com
 2. Click **Apps** → **Create app** → **Create app manually**
 3. Fill in:
-   - **App name**: Springify (or your choice)
+   - **App name**: BulkPrice
    - **App URL**: `https://your-app.vercel.app` (you'll update this after Vercel deployment)
    - **Allowed redirection URLs**: 
      ```
