@@ -1,4 +1,4 @@
-import { shopifyApi, ApiVersion, LATEST_API_VERSION } from "@shopify/shopify-api";
+import { shopifyApi, ApiVersion } from "@shopify/shopify-api";
 
 // Initialize Shopify API with configuration
 export const shopify = shopifyApi({
@@ -14,7 +14,7 @@ export const shopify = shopifyApi({
   ],
   hostName: process.env.SHOPIFY_APP_URL?.replace(/https?:\/\//, "") || "",
   hostScheme: "https",
-  apiVersion: LATEST_API_VERSION,
+  apiVersion: ApiVersion.January24,
   isEmbeddedApp: true,
   isCustomStoreApp: false,
 });
