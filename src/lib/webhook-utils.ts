@@ -16,9 +16,16 @@ export async function validateWebhook(
   res: NextApiResponse,
   rawBody: string
 ): Promise<boolean> {
-  return shopify.webhooks.validate({
+  const validation = await shopify.webhooks.validate({
     rawBody,
     rawRequest: req,
     rawResponse: res,
   });
+
+  if (typeof validation === "boolean") {
+    return validation;
+  }
+
+  const normalized = validation as { valid?: boolean; isValid?: boolean };
+  return normalized.valid ?? normalized.isValid ?? false;
 }
