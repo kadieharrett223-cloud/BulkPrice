@@ -19,6 +19,54 @@ export function calculateNewPrice(currentPrice: number, action: PriceAction): nu
   }
 }
 
+export function applyMarginProtection(
+  calculatedPrice: number,
+  currentPrice: number,
+  action: PriceAction,
+  variantCost?: number | null
+): { price: number; wasProtected: boolean; floor?: number } {
+  const protection = action.marginProtection;
+
+  if (!protection?.enabled) {
+    return { price: calculatedPrice, wasProtected: false };
+  }
+
+  let floor: number | null = null;
+
+  if (protection.mode === "fixed_minimum") {
+    floor = protection.value;
+  } else {
+    const hasCost = typeof variantCost === "number" && !Number.isNaN(variantCost);
+    if (!hasCost) {
+      return { price: calculatedPrice, wasProtected: false };
+    }
+
+    if (protection.mode === "cost_plus_percentage") {
+      floor = (variantCost as number) * (1 + protection.value / 100);
+    }
+
+    if (protection.mode === "cost_plus_fixed") {
+      floor = (variantCost as number) + protection.value;
+    }
+  }
+
+  if (typeof floor !== "number" || Number.isNaN(floor)) {
+    return { price: calculatedPrice, wasProtected: false };
+  }
+
+  const normalizedFloor = Math.round(floor * 100) / 100;
+
+  if (calculatedPrice < normalizedFloor) {
+    return {
+      price: normalizedFloor,
+      wasProtected: true,
+      floor: normalizedFloor,
+    };
+  }
+
+  return { price: calculatedPrice, wasProtected: false, floor: normalizedFloor };
+}
+
 export function roundPrice(price: number, roundTo: ".99" | ".95" | ".00" = ".99"): number {
   const roundMap = {
     ".99": 0.99,

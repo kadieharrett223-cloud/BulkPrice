@@ -57,6 +57,8 @@ export interface PricePreview {
   newCompareAtPrice?: number;
   change: number; // percentage or fixed
   savings?: number;
+  wasProtected?: boolean;
+  protectionFloor?: number;
 }
 
 // Filter types
@@ -86,6 +88,11 @@ export interface PriceAction {
   includeCompareAt?: boolean;
   compareAtAdjustment?: {
     type: "percentage" | "fixed";
+    value: number;
+  };
+  marginProtection?: {
+    enabled: boolean;
+    mode: "fixed_minimum" | "cost_plus_percentage" | "cost_plus_fixed";
     value: number;
   };
 }

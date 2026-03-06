@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { PriceFilter, PriceAction, ApiResponse, PriceChangeResponse, PricePreview } from "@/types";
-import { calculateNewPrice, generateChangeGroupId } from "@lib/price-utils";
+import { applyMarginProtection, calculateNewPrice, generateChangeGroupId } from "@lib/price-utils";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<PriceChangeResponse>>) {
   if (req.method !== "POST") {
@@ -76,7 +76,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // Generate preview
     const changeGroupId = generateChangeGroupId();
     const preview: PricePreview[] = variants.map((v) => {
-      const newPrice = calculateNewPrice(v.price, action);
+      const calculatedPrice = calculateNewPrice(v.price, action);
+      const protectedResult = applyMarginProtection(calculatedPrice, v.price, action, v.cost);
+      const newPrice = protectedResult.price;
+
       return {
         variantId: v.id,
         productId: v.productId,
@@ -87,6 +90,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         oldCompareAtPrice: v.compareAtPrice,
         change: ((newPrice - v.price) / v.price) * 100,
         savings: Math.max(0, v.price - newPrice),
+        wasProtected: protectedResult.wasProtected,
+        protectionFloor: protectedResult.floor,
       };
     });
 

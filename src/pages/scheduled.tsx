@@ -22,6 +22,11 @@ export default function ScheduledPage() {
   const [ruleType, setRuleType] = useState<PriceAction["type"]>("percentage_decrease");
   const [ruleValue, setRuleValue] = useState<number>(20);
   const [roundTo, setRoundTo] = useState<".99" | ".95" | ".00">(".99");
+  const [marginProtectionEnabled, setMarginProtectionEnabled] = useState(false);
+  const [marginProtectionMode, setMarginProtectionMode] = useState<
+    "fixed_minimum" | "cost_plus_percentage" | "cost_plus_fixed"
+  >("fixed_minimum");
+  const [marginProtectionValue, setMarginProtectionValue] = useState<number>(10);
 
   const [collectionInput, setCollectionInput] = useState("");
   const [vendorInput, setVendorInput] = useState("");
@@ -36,6 +41,10 @@ export default function ScheduledPage() {
     affectedCount: 0,
     estimatedOperations: 0,
     averageChangePercent: 0,
+    lowestPrice: 0,
+    highestPrice: 0,
+    estimatedRevenueImpact: 0,
+    belowCostCount: 0,
     loaded: false,
   });
 
@@ -107,6 +116,9 @@ export default function ScheduledPage() {
         setRuleType("percentage_decrease");
         setRuleValue(20);
         setRoundTo(".99");
+        setMarginProtectionEnabled(false);
+        setMarginProtectionMode("fixed_minimum");
+        setMarginProtectionValue(10);
         setCollectionInput("");
         setVendorInput("");
         setProductTypeInput("");
@@ -119,6 +131,10 @@ export default function ScheduledPage() {
           affectedCount: 0,
           estimatedOperations: 0,
           averageChangePercent: 0,
+          lowestPrice: 0,
+          highestPrice: 0,
+          estimatedRevenueImpact: 0,
+          belowCostCount: 0,
           loaded: false,
         });
         fetchScheduledChanges();
@@ -155,12 +171,25 @@ export default function ScheduledPage() {
 
   const buildAction = (): PriceAction => {
     if (ruleType === "round") {
-      return { type: ruleType, roundTo };
+      return {
+        type: ruleType,
+        roundTo,
+        marginProtection: {
+          enabled: marginProtectionEnabled,
+          mode: marginProtectionMode,
+          value: marginProtectionValue,
+        },
+      };
     }
 
     return {
       type: ruleType,
       value: ruleValue,
+      marginProtection: {
+        enabled: marginProtectionEnabled,
+        mode: marginProtectionMode,
+        value: marginProtectionValue,
+      },
     };
   };
 
@@ -180,11 +209,31 @@ export default function ScheduledPage() {
         previewRows.length > 0
           ? previewRows.reduce((sum: number, row: any) => sum + (row.change || 0), 0) / previewRows.length
           : 0;
+      const lowestPrice =
+        previewRows.length > 0
+          ? Math.min(...previewRows.map((row: any) => Number(row.newPrice || 0)))
+          : 0;
+      const highestPrice =
+        previewRows.length > 0
+          ? Math.max(...previewRows.map((row: any) => Number(row.newPrice || 0)))
+          : 0;
+      const estimatedRevenueImpact =
+        previewRows.length > 0
+          ? previewRows.reduce((sum: number, row: any) => sum + (Number(row.newPrice || 0) - Number(row.oldPrice || 0)), 0)
+          : 0;
+      const belowCostCount =
+        previewRows.length > 0
+          ? previewRows.filter((row: any) => row.wasProtected).length
+          : 0;
 
       setImpact({
         affectedCount: count,
         estimatedOperations: count,
         averageChangePercent,
+        lowestPrice,
+        highestPrice,
+        estimatedRevenueImpact,
+        belowCostCount,
         loaded: true,
       });
     } catch (error) {
@@ -193,6 +242,10 @@ export default function ScheduledPage() {
         affectedCount: 0,
         estimatedOperations: 0,
         averageChangePercent: 0,
+        lowestPrice: 0,
+        highestPrice: 0,
+        estimatedRevenueImpact: 0,
+        belowCostCount: 0,
         loaded: true,
       });
     }
@@ -331,6 +384,53 @@ export default function ScheduledPage() {
                 <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
                   Preview: $50.00 → ${samplePreview.toFixed(2)}
                 </div>
+
+                <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                  <label className="flex items-center space-x-3 mb-3">
+                    <input
+                      type="checkbox"
+                      checked={marginProtectionEnabled}
+                      onChange={(e) => setMarginProtectionEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">Prevent prices below protected floor</span>
+                  </label>
+
+                  {marginProtectionEnabled && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Protection Mode</label>
+                        <select
+                          value={marginProtectionMode}
+                          onChange={(e) =>
+                            setMarginProtectionMode(
+                              e.target.value as "fixed_minimum" | "cost_plus_percentage" | "cost_plus_fixed"
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          <option value="fixed_minimum">Minimum fixed price</option>
+                          <option value="cost_plus_percentage">Cost + percentage margin</option>
+                          <option value="cost_plus_fixed">Cost + fixed amount</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Value</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={marginProtectionValue}
+                            onChange={(e) => setMarginProtectionValue(Number(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                          <span className="text-sm text-gray-600">
+                            {marginProtectionMode === "cost_plus_percentage" ? "%" : "$"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </section>
 
               <section className="border border-gray-200 rounded-lg p-5">
@@ -436,7 +536,7 @@ export default function ScheduledPage() {
 
               <section className="border border-gray-200 rounded-lg p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Impact Preview</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Sale Impact Preview</h3>
                   <button
                     onClick={calculateImpact}
                     className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
@@ -455,12 +555,33 @@ export default function ScheduledPage() {
                     <p className="text-xl font-semibold text-gray-900">{impact.estimatedOperations}</p>
                   </div>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                    <p className="text-gray-500">Average price change</p>
+                    <p className="text-gray-500">Average discount</p>
                     <p className={`text-xl font-semibold ${impact.averageChangePercent <= 0 ? "text-green-600" : "text-red-600"}`}>
                       {impact.averageChangePercent > 0 ? "+" : ""}
                       {impact.averageChangePercent.toFixed(2)}%
                     </p>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-4">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-gray-500">Lowest price after change</p>
+                    <p className="text-xl font-semibold text-gray-900">${impact.lowestPrice.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-gray-500">Highest price after change</p>
+                    <p className="text-xl font-semibold text-gray-900">${impact.highestPrice.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-gray-500">Estimated revenue impact</p>
+                    <p className={`text-xl font-semibold ${impact.estimatedRevenueImpact <= 0 ? "text-red-600" : "text-green-600"}`}>
+                      {impact.estimatedRevenueImpact > 0 ? "+" : ""}${impact.estimatedRevenueImpact.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                  Products adjusted by margin protection: <span className="font-semibold">{impact.belowCostCount}</span>
                 </div>
 
                 {!impact.loaded && (
@@ -504,6 +625,18 @@ export default function ScheduledPage() {
                     {ruleType === "round"
                       ? `Round to ${roundTo}`
                       : `${ruleType.includes("decrease") ? "-" : "+"}${ruleValue}${ruleType.includes("percentage") ? "%" : "$"}`}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Protection</p>
+                  <p className="text-gray-900 font-medium">
+                    {marginProtectionEnabled
+                      ? marginProtectionMode === "fixed_minimum"
+                        ? `Min $${marginProtectionValue}`
+                        : marginProtectionMode === "cost_plus_percentage"
+                        ? `Cost + ${marginProtectionValue}%`
+                        : `Cost + $${marginProtectionValue}`
+                      : "Disabled"}
                   </p>
                 </div>
                 <div>

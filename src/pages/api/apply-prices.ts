@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { PriceFilter, PriceAction, ApiResponse } from "@/types";
-import { calculateNewPrice, generateId } from "@lib/price-utils";
+import { applyMarginProtection, calculateNewPrice, generateId } from "@lib/price-utils";
 import { createShopifyAPI } from "@lib/shopify-api";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
@@ -75,7 +75,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     let failedCount = 0;
 
     for (const variant of variants) {
-      const newPrice = calculateNewPrice(variant.price, action);
+      const calculatedPrice = calculateNewPrice(variant.price, action);
+      const { price: newPrice } = applyMarginProtection(
+        calculatedPrice,
+        variant.price,
+        action,
+        variant.cost
+      );
       let newCompareAtPrice = variant.compareAtPrice;
 
       // Update compare-at price if specified
