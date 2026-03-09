@@ -24,16 +24,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
 async function handleGet(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   const db = await initDb();
-  const { status = "scheduled" } = req.query;
+  const { status = "scheduled", shop } = req.query;
 
-  const changes = await db.all(
-    `
-    SELECT * FROM scheduledChanges
-    WHERE status = ?
-    ORDER BY startTime ASC
-  `,
-    [status]
-  );
+  if (!shop || typeof shop !== "string") {
+    return res.status(400).json({ success: false, error: "Shop parameter required" });
+  }
+
+  const changes = status === "all"
+    ? await db.all(
+        `
+        SELECT * FROM scheduledChanges
+        WHERE shop = ?
+        ORDER BY startTime ASC
+      `,
+        [shop]
+      )
+    : await db.all(
+        `
+        SELECT * FROM scheduledChanges
+        WHERE status = ? AND shop = ?
+        ORDER BY startTime ASC
+      `,
+        [status, shop]
+      );
 
   const result = changes.map((change: any) => ({
     ...change,
@@ -73,11 +86,12 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse<ApiResponse<
 
   await db.run(
     `
-    INSERT INTO scheduledChanges (id, name, description, filters, action, startTime, endTime, autoRevert, status, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO scheduledChanges (id, shop, name, description, filters, action, startTime, endTime, autoRevert, status, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
     [
       id,
+      shop,
       name,
       description,
       JSON.stringify(filters),
@@ -99,27 +113,74 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse<ApiResponse<
 
 async function handlePut(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   const db = await initDb();
-  const { id, status } = req.body;
+  const { id, status, name, description, filters, action, startTime, endTime, autoRevert, shop } = req.body;
 
-  if (!id) {
-    return res.status(400).json({ success: false, error: "ID is required" });
+  if (!id || !shop) {
+    return res.status(400).json({ success: false, error: "ID and shop are required" });
   }
 
-  await db.run("UPDATE scheduledChanges SET status = ?, updatedAt = ? WHERE id = ?", [status, new Date().toISOString(), id]);
+  if (typeof name === "string" || typeof description === "string" || filters || action || startTime || endTime || typeof autoRevert === "boolean") {
+    const settings = await db.get("SELECT plan FROM settings WHERE shop = ? LIMIT 1", [shop]);
+    const rawPlan = (settings?.plan || "starter") as string;
+    const normalizedPlan =
+      rawPlan === "basic"
+        ? "starter"
+        : rawPlan === "pro" || rawPlan === "advanced"
+        ? "premium"
+        : rawPlan;
+
+    if (normalizedPlan !== "premium") {
+      return res.status(402).json({
+        success: false,
+        error: "Upgrade to Premium to edit scheduled sales.",
+      });
+    }
+
+    await db.run(
+      `
+      UPDATE scheduledChanges
+      SET name = COALESCE(?, name),
+          description = COALESCE(?, description),
+          filters = COALESCE(?, filters),
+          action = COALESCE(?, action),
+          startTime = COALESCE(?, startTime),
+          endTime = COALESCE(?, endTime),
+          autoRevert = COALESCE(?, autoRevert),
+          updatedAt = ?
+      WHERE id = ? AND shop = ?
+    `,
+      [
+        typeof name === "string" ? name : null,
+        typeof description === "string" ? description : null,
+        filters ? JSON.stringify(filters) : null,
+        action ? JSON.stringify(action) : null,
+        startTime || null,
+        endTime || null,
+        typeof autoRevert === "boolean" ? (autoRevert ? 1 : 0) : null,
+        new Date().toISOString(),
+        id,
+        shop,
+      ]
+    );
+
+    return res.status(200).json({ success: true, data: { id } });
+  }
+
+  await db.run("UPDATE scheduledChanges SET status = ?, updatedAt = ? WHERE id = ? AND shop = ?", [status, new Date().toISOString(), id, shop]);
 
   return res.status(200).json({ success: true, data: { id, status } });
 }
 
 async function handleDelete(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   const db = await initDb();
-  const { id } = req.query;
+  const { id, shop } = req.query;
 
-  if (!id) {
-    return res.status(400).json({ success: false, error: "ID is required" });
+  if (!id || !shop || typeof shop !== "string") {
+    return res.status(400).json({ success: false, error: "ID and shop are required" });
   }
 
-  await db.run("DELETE FROM scheduledChanges WHERE id = ?", [id]);
-  await db.run("DELETE FROM scheduledChangeItems WHERE scheduledChangeId = ?", [id]);
+  await db.run("DELETE FROM scheduledChanges WHERE id = ? AND shop = ?", [id, shop]);
+  await db.run("DELETE FROM scheduledChangeItems WHERE scheduledChangeId = ? AND shop = ?", [id, shop]);
 
   return res.status(200).json({ success: true, data: { id } });
 }

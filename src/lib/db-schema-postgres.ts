@@ -3,6 +3,7 @@ export const PG_SCHEMA = `
 -- Products table
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
+  shop TEXT,
   shopifyId TEXT UNIQUE NOT NULL,
   title TEXT NOT NULL,
   vendor TEXT,
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS products (
 -- Product variants
 CREATE TABLE IF NOT EXISTS variants (
   id TEXT PRIMARY KEY,
+  shop TEXT,
   shopifyId TEXT UNIQUE NOT NULL,
   productId TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS variants (
 -- Price change history
 CREATE TABLE IF NOT EXISTS priceHistory (
   id TEXT PRIMARY KEY,
+  shop TEXT,
   variantId TEXT NOT NULL,
   productId TEXT NOT NULL,
   oldPrice DECIMAL(10,2) NOT NULL,
@@ -51,6 +54,7 @@ CREATE TABLE IF NOT EXISTS priceHistory (
 -- Scheduled price changes
 CREATE TABLE IF NOT EXISTS scheduledChanges (
   id TEXT PRIMARY KEY,
+  shop TEXT,
   name TEXT NOT NULL,
   description TEXT,
   filters TEXT NOT NULL,
@@ -66,6 +70,7 @@ CREATE TABLE IF NOT EXISTS scheduledChanges (
 -- Scheduled change items
 CREATE TABLE IF NOT EXISTS scheduledChangeItems (
   id TEXT PRIMARY KEY,
+  shop TEXT,
   scheduledChangeId TEXT NOT NULL,
   variantId TEXT NOT NULL,
   originalPrice DECIMAL(10,2) NOT NULL,
@@ -76,6 +81,7 @@ CREATE TABLE IF NOT EXISTS scheduledChangeItems (
 -- Activity log
 CREATE TABLE IF NOT EXISTS activityLog (
   id TEXT PRIMARY KEY,
+  shop TEXT,
   action TEXT NOT NULL,
   details TEXT,
   affectedCount INTEGER,
@@ -87,6 +93,7 @@ CREATE TABLE IF NOT EXISTS activityLog (
 -- Rollback snapshots
 CREATE TABLE IF NOT EXISTS rollbackSnapshots (
   id TEXT PRIMARY KEY,
+  shop TEXT,
   changeGroupId TEXT UNIQUE NOT NULL,
   variantSnapshots TEXT NOT NULL,
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -127,11 +134,16 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_products_shopId ON products(shopifyId);
+CREATE INDEX IF NOT EXISTS idx_products_shop ON products(shop);
 CREATE INDEX IF NOT EXISTS idx_variants_productId ON variants(productId);
 CREATE INDEX IF NOT EXISTS idx_variants_shopId ON variants(shopifyId);
+CREATE INDEX IF NOT EXISTS idx_variants_shop ON variants(shop);
 CREATE INDEX IF NOT EXISTS idx_priceHistory_variantId ON priceHistory(variantId);
 CREATE INDEX IF NOT EXISTS idx_priceHistory_changeGroupId ON priceHistory(changeGroupId);
+CREATE INDEX IF NOT EXISTS idx_priceHistory_shop ON priceHistory(shop);
 CREATE INDEX IF NOT EXISTS idx_activityLog_timestamp ON activityLog(timestamp);
+CREATE INDEX IF NOT EXISTS idx_activityLog_shop ON activityLog(shop);
 CREATE INDEX IF NOT EXISTS idx_scheduledChanges_status ON scheduledChanges(status);
+CREATE INDEX IF NOT EXISTS idx_scheduledChanges_shop ON scheduledChanges(shop);
 CREATE INDEX IF NOT EXISTS idx_sessions_shop ON sessions(shop);
 `;

@@ -10,14 +10,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
   try {
     const db = await initDb();
-    const { filters, action }: { filters: PriceFilter; action: PriceAction } = req.body;
+    const { filters, action, shop }: { filters: PriceFilter; action: PriceAction; shop: string } = req.body;
+
+    if (!shop) {
+      return res.status(400).json({ success: false, error: "Shop parameter required" });
+    }
 
     // Build filter query
-    let filterQuery = "WHERE 1=1";
-    const params: any[] = [];
+    let filterQuery = "WHERE p.shop = ? AND v.shop = ?";
+    const params: any[] = [shop, shop];
 
     if (filters.collections?.length) {
-      filterQuery += " AND (collections LIKE ?)";
+      filterQuery += " AND (p.collections LIKE ?)";
       params.push(`%${filters.collections[0]}%`);
     }
 
@@ -37,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     }
 
     if (filters.tags?.length) {
-      filterQuery += " AND (tags LIKE ?)";
+      filterQuery += " AND (p.tags LIKE ?)";
       params.push(`%${filters.tags[0]}%`);
     }
 

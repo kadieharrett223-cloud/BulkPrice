@@ -44,10 +44,18 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
+      if (!shop) {
+        setLoading(false);
+        return;
+      }
+
       const [logsResponse, scheduledResponse, productsResponse] = await Promise.all([
-        axios.get("/api/activity-log?limit=5"),
-        axios.get("/api/scheduled-changes"),
-        axios.get("/api/products?limit=1"),
+        axios.get(`/api/activity-log?limit=5&shop=${encodeURIComponent(shop)}`),
+        axios.get(`/api/scheduled-changes?status=all&shop=${encodeURIComponent(shop)}`),
+        axios.get(`/api/products?limit=1&shop=${encodeURIComponent(shop)}`),
       ]);
 
       if (logsResponse.data.success) {

@@ -46,9 +46,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         SELECT COUNT(DISTINCT changeGroupId) as count
         FROM priceHistory
         WHERE timestamp >= ?
+          AND shop = ?
           AND changeGroupId IS NOT NULL
       `,
-        [monthStart.toISOString()]
+        [monthStart.toISOString(), shop]
       );
 
       const monthlyChanges = usage?.count || 0;
@@ -72,8 +73,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const client = new shopify.clients.Graphql({ session });
 
     // Build filter query
-    let filterQuery = "WHERE 1=1";
-    const params: any[] = [];
+    let filterQuery = "WHERE p.shop = ? AND v.shop = ?";
+    const params: any[] = [shop, shop];
 
     if (filters.collections?.length) {
       filterQuery += " AND (p.collections LIKE ?)";
@@ -196,11 +197,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       const historyId = generateId("history");
       await db.run(
         `
-        INSERT INTO priceHistory (id, variantId, productId, oldPrice, newPrice, oldCompareAtPrice, newCompareAtPrice, changeType, percentage, changeGroupId, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO priceHistory (id, shop, variantId, productId, oldPrice, newPrice, oldCompareAtPrice, newCompareAtPrice, changeType, percentage, changeGroupId, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         [
           historyId,
+          shop,
           variant.id,
           variant.productId,
           variant.price,
@@ -240,11 +242,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     await db.run(
       `
-      INSERT INTO rollbackSnapshots (id, changeGroupId, variantSnapshots, createdAt, expiresAt)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO rollbackSnapshots (id, shop, changeGroupId, variantSnapshots, createdAt, expiresAt)
+      VALUES (?, ?, ?, ?, ?, ?)
     `,
       [
         snapshotId,
+        shop,
         changeGroupId,
         JSON.stringify(rollbackData),
         new Date().toISOString(),
@@ -256,10 +259,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const logId = generateId("log");
     await db.run(
       `
-      INSERT INTO activityLog (id, action, affectedCount, changeGroupId, timestamp)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO activityLog (id, shop, action, affectedCount, changeGroupId, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
     `,
-      [logId, `Applied ${action.type} to variants`, variants.length, changeGroupId, new Date().toISOString()]
+      [logId, shop, `Applied ${action.type} to variants`, variants.length, changeGroupId, new Date().toISOString()]
     );
 
     return res.status(200).json({

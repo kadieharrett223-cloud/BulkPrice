@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { PriceAction, PriceFilter, ScheduledChange } from "@/types";
-import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Lock, Pencil } from "lucide-react";
 import { calculateNewPrice, formatDate } from "@lib/price-utils";
 
 export default function ScheduledPage() {
   const [changes, setChanges] = useState<ScheduledChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [planType, setPlanType] = useState<"starter" | "premium">("starter");
   const [usageLabel, setUsageLabel] = useState<string>("--");
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
@@ -54,8 +55,15 @@ export default function ScheduledPage() {
   });
 
   useEffect(() => {
+    runScheduledChanges();
     fetchScheduledChanges();
     fetchPlanUsage();
+
+    const interval = setInterval(() => {
+      runScheduledChanges();
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const getCurrentShop = () => {
@@ -112,7 +120,13 @@ export default function ScheduledPage() {
 
   const fetchScheduledChanges = async () => {
     try {
-      const response = await axios.get("/api/scheduled-changes");
+      const shop = getCurrentShop();
+      if (!shop) {
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get(`/api/scheduled-changes?status=all&shop=${encodeURIComponent(shop)}`);
       if (response.data.success) {
         setChanges(response.data.data);
       }
@@ -130,7 +144,8 @@ export default function ScheduledPage() {
     }
 
     try {
-      const response = await axios.delete(`/api/scheduled-changes?id=${id}`);
+      const shop = getCurrentShop();
+      const response = await axios.delete(`/api/scheduled-changes?id=${id}&shop=${encodeURIComponent(shop)}`);
       if (response.data.success) {
         setChanges(changes.filter((c) => c.id !== id));
         toast.success("Scheduled change deleted");
@@ -138,6 +153,54 @@ export default function ScheduledPage() {
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Failed to delete");
     }
+  };
+
+  const runScheduledChanges = async () => {
+    try {
+      const shop = getCurrentShop();
+      if (!shop) return;
+
+      const response = await axios.post("/api/run-scheduled", { shop });
+      if (response.data?.success) {
+        const { appliedSchedules, revertedSchedules } = response.data.data || {};
+        if ((appliedSchedules || 0) > 0 || (revertedSchedules || 0) > 0) {
+          fetchScheduledChanges();
+        }
+      }
+    } catch {
+      // silent: background runner
+    }
+  };
+
+  const startEditing = (change: ScheduledChange) => {
+    setEditingScheduleId(change.id);
+    setShowForm(true);
+
+    const action = change.action;
+
+    setFormData({
+      name: change.name,
+      description: change.description || "",
+      startTime: change.startTime ? new Date(change.startTime).toISOString().slice(0, 16) : "",
+      endTime: change.endTime ? new Date(change.endTime).toISOString().slice(0, 16) : "",
+      autoRevert: Boolean(change.autoRevert),
+    });
+
+    setRuleType(action.type);
+    setRuleValue(action.value || 0);
+    setRoundTo(action.roundTo || ".99");
+    setMarginProtectionEnabled(Boolean(action.marginProtection?.enabled));
+    setMarginProtectionMode(action.marginProtection?.mode || "fixed_minimum");
+    setMarginProtectionValue(action.marginProtection?.value || 10);
+
+    setCollectionInput(change.filters.collections?.[0] || "");
+    setVendorInput(change.filters.vendors?.[0] || "");
+    setProductTypeInput(change.filters.productTypes?.[0] || "");
+    setStatus((change.filters.statuses?.[0] as "active" | "draft" | "archived" | "") || "");
+    setPriceMin(change.filters.priceRange?.min || 0);
+    setPriceMax(change.filters.priceRange?.max || 300);
+    setInventoryMin(change.filters.inventoryRange?.min || 0);
+    setInventoryMax(change.filters.inventoryRange?.max || 500);
   };
 
   const handleSaveForm = async () => {
@@ -161,16 +224,21 @@ export default function ScheduledPage() {
     const shop = getCurrentShop();
 
     try {
-      const response = await axios.post("/api/scheduled-changes", {
+      const payload = {
         ...formData,
         filters,
         action,
         shop,
-      });
+      };
+
+      const response = editingScheduleId
+        ? await axios.put("/api/scheduled-changes", { ...payload, id: editingScheduleId })
+        : await axios.post("/api/scheduled-changes", payload);
 
       if (response.data.success) {
-        toast.success("Scheduled change created");
+        toast.success(editingScheduleId ? "Scheduled change updated" : "Scheduled change created");
         setShowForm(false);
+        setEditingScheduleId(null);
         setFormData({
           name: "",
           description: "",
@@ -261,11 +329,17 @@ export default function ScheduledPage() {
   const calculateImpact = async () => {
     const filters = buildFilters();
     const action = buildAction();
+    const shop = getCurrentShop();
+
+    if (!shop) {
+      toast.error("Install on Shopify to start");
+      return;
+    }
 
     try {
       const [countResponse, previewResponse] = await Promise.all([
-        axios.post("/api/preview-count", { filters }),
-        axios.post("/api/preview-prices", { filters, action }),
+        axios.post("/api/preview-count", { filters, shop }),
+        axios.post("/api/preview-prices", { filters, action, shop }),
       ]);
 
       const count = countResponse.data?.data?.count || 0;
@@ -842,7 +916,10 @@ export default function ScheduledPage() {
 
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingScheduleId(null);
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50"
                 >
                   Cancel
@@ -851,7 +928,7 @@ export default function ScheduledPage() {
                   onClick={handleSaveForm}
                   className="flex-1 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700"
                 >
-                  Create Schedule
+                  {editingScheduleId ? "Update Schedule" : "Create Schedule"}
                 </button>
               </div>
             </div>
@@ -942,6 +1019,13 @@ export default function ScheduledPage() {
                   </div>
                   <div className="flex items-center space-x-3">
                     {getStatusBadge(change.status)}
+                    <button
+                      onClick={() => startEditing(change)}
+                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="Edit schedule"
+                    >
+                      <Pencil className="w-5 h-5" />
+                    </button>
                     <button
                       onClick={() => handleDelete(change.id)}
                       className="p-2 text-gray-400 hover:text-red-600 transition-colors"

@@ -96,9 +96,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
         // Insert or update product
         await db.run(
-          `INSERT INTO products (id, shopifyId, title, vendor, productType, status, tags, collections, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO products (id, shop, shopifyId, title, vendor, productType, status, tags, collections, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(shopifyId) DO UPDATE SET
+             shop = excluded.shop,
              title = excluded.title,
              vendor = excluded.vendor,
              productType = excluded.productType,
@@ -108,6 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
              updatedAt = excluded.updatedAt`,
           [
             productId,
+            shop,
             productShopifyId,
             product.title,
             product.vendor || "",
@@ -123,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         totalProducts++;
 
         // Get the actual product ID from DB (in case of conflict/update)
-        const dbProduct = await db.get("SELECT id FROM products WHERE shopifyId = ?", [productShopifyId]);
+        const dbProduct = await db.get("SELECT id FROM products WHERE shopifyId = ? AND shop = ?", [productShopifyId, shop]);
         const actualProductId = dbProduct.id;
 
         // Insert variants
@@ -140,9 +142,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           );
 
           await db.run(
-            `INSERT INTO variants (id, shopifyId, productId, title, price, compareAtPrice, sku, inventory, options, createdAt, updatedAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO variants (id, shop, shopifyId, productId, title, price, compareAtPrice, sku, inventory, options, createdAt, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(shopifyId) DO UPDATE SET
+               shop = excluded.shop,
                productId = excluded.productId,
                title = excluded.title,
                price = excluded.price,
@@ -153,6 +156,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
                updatedAt = excluded.updatedAt`,
             [
               variantId,
+              shop,
               variantShopifyId,
               actualProductId,
               variant.title,
@@ -179,10 +183,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // Log activity
     const logId = generateId("log");
     await db.run(
-      `INSERT INTO activityLog (id, action, details, affectedCount, timestamp)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO activityLog (id, shop, action, details, affectedCount, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         logId,
+        shop,
         "Product sync completed",
         `Synced ${totalProducts} products with ${totalVariants} variants`,
         totalProducts,

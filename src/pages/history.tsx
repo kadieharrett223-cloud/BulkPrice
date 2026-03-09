@@ -18,8 +18,16 @@ export default function HistoryPage() {
   const fetchLogs = async () => {
     try {
       setLoading(true);
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
+      if (!shop) {
+        setLogs([]);
+        return;
+      }
+
       const response = await axios.get(
-        `/api/activity-log?limit=${limit}&offset=${(page - 1) * limit}`
+        `/api/activity-log?limit=${limit}&offset=${(page - 1) * limit}&shop=${encodeURIComponent(shop)}`
       );
       if (response.data.success) {
         setLogs(response.data.data);

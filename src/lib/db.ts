@@ -56,6 +56,30 @@ async function initPostgres(): Promise<DbAdapter> {
     client.release();
   }
 
+  const pgMigrations = [
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS shop TEXT",
+    "ALTER TABLE variants ADD COLUMN IF NOT EXISTS shop TEXT",
+    "ALTER TABLE priceHistory ADD COLUMN IF NOT EXISTS shop TEXT",
+    "ALTER TABLE scheduledChanges ADD COLUMN IF NOT EXISTS shop TEXT",
+    "ALTER TABLE scheduledChangeItems ADD COLUMN IF NOT EXISTS shop TEXT",
+    "ALTER TABLE activityLog ADD COLUMN IF NOT EXISTS shop TEXT",
+    "ALTER TABLE rollbackSnapshots ADD COLUMN IF NOT EXISTS shop TEXT",
+  ];
+
+  try {
+    const migrateClient = await pool.connect();
+    for (const migration of pgMigrations) {
+      try {
+        await migrateClient.query(migration);
+      } catch {
+        // Ignore migration errors on already-migrated databases
+      }
+    }
+    migrateClient.release();
+  } catch {
+    // Ignore migration connection errors during boot
+  }
+
   function toPgQuery(query: string): string {
     let index = 0;
     return query.replace(/\?/g, () => {
@@ -151,6 +175,24 @@ async function initSQLite(): Promise<Database> {
 
   // Initialize schema
   await db.exec(DB_SCHEMA);
+
+  const migrations = [
+    "ALTER TABLE products ADD COLUMN shop TEXT",
+    "ALTER TABLE variants ADD COLUMN shop TEXT",
+    "ALTER TABLE priceHistory ADD COLUMN shop TEXT",
+    "ALTER TABLE scheduledChanges ADD COLUMN shop TEXT",
+    "ALTER TABLE scheduledChangeItems ADD COLUMN shop TEXT",
+    "ALTER TABLE activityLog ADD COLUMN shop TEXT",
+    "ALTER TABLE rollbackSnapshots ADD COLUMN shop TEXT",
+  ];
+
+  for (const migration of migrations) {
+    try {
+      await db.exec(migration);
+    } catch {
+      // Ignore duplicate-column migration attempts
+    }
+  }
 
   console.log("SQLite database initialized successfully at:", sqlitePath);
   return db;

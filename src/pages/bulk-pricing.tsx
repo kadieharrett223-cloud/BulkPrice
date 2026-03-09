@@ -93,8 +93,11 @@ export default function BulkPricingPage() {
 
     setFilters(nextFilters);
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
     try {
-      const response = await axios.post("/api/preview-count", { filters: nextFilters });
+      const response = await axios.post("/api/preview-count", { filters: nextFilters, shop });
       if (response.data.success) {
         setMatchingCount(response.data.data.count || 0);
         toast.success("Filters applied");
@@ -117,8 +120,11 @@ export default function BulkPricingPage() {
     setInventoryMax(500);
     setFilters({});
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
     try {
-      const response = await axios.post("/api/preview-count", { filters: {} });
+      const response = await axios.post("/api/preview-count", { filters: {}, shop });
       if (response.data.success) {
         setMatchingCount(response.data.data.count || 0);
       }
@@ -130,10 +136,14 @@ export default function BulkPricingPage() {
   const generatePreview = async () => {
     setLoading(true);
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
     try {
       const response = await axios.post("/api/preview-prices", {
         filters,
         action,
+        shop,
       });
 
       if (response.data.success) {
@@ -232,8 +242,12 @@ export default function BulkPricingPage() {
     setLoading(true);
 
     try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+
       const response = await axios.post("/api/rollback", {
         changeGroupId: lastChangeGroupId,
+        shop,
       });
 
       if (response.data.success) {

@@ -9,18 +9,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
   try {
     const db = await initDb();
-    const { limit = 50, offset = 0 } = req.query;
+    const { limit = 50, offset = 0, shop } = req.query;
+
+    if (!shop || typeof shop !== "string") {
+      return res.status(400).json({ success: false, error: "Shop parameter required" });
+    }
 
     const logs = await db.all(
       `
       SELECT * FROM activityLog
+      WHERE shop = ?
       ORDER BY timestamp DESC
       LIMIT ? OFFSET ?
     `,
-      [parseInt(limit as string), parseInt(offset as string)]
+      [shop, parseInt(limit as string), parseInt(offset as string)]
     );
-
-    const total = await db.get("SELECT COUNT(*) as count FROM activityLog");
 
     return res.status(200).json({
       success: true,

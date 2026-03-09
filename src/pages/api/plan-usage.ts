@@ -46,9 +46,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       SELECT COUNT(DISTINCT changeGroupId) as count
       FROM priceHistory
       WHERE timestamp >= ?
+        AND shop = ?
         AND changeGroupId IS NOT NULL
     `,
-      [monthStart.toISOString()]
+      [monthStart.toISOString(), shop]
     );
 
     const starterLimit = 5;
