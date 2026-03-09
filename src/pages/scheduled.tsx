@@ -530,8 +530,14 @@ export default function ScheduledPage() {
         )}
 
         {!isPremium && (
-          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-            Demo shown: mock 2-week promotion window is highlighted to preview premium calendar planning.
+          <div className="mb-4 bg-blue-600 border border-blue-700 rounded-lg p-4 text-white">
+            <div className="flex items-center gap-2 mb-1">
+              <CalendarDays className="w-5 h-5" />
+              <h3 className="font-bold text-lg">Mock Spring Sale - 2 Week Promotion</h3>
+            </div>
+            <p className="text-sm text-blue-100">
+              This is a preview of how scheduled promotions appear in the calendar. Upgrade to premium to create, edit, and automate your own sales campaigns.
+            </p>
           </div>
         )}
 
@@ -578,17 +584,17 @@ export default function ScheduledPage() {
                   className={`min-h-[64px] border rounded-md p-1.5 ${
                     cell
                       ? cell.isMockPromo
-                        ? "border-blue-300 bg-blue-50"
+                        ? "border-blue-500 bg-blue-400 shadow-sm"
                         : "border-gray-200 bg-white"
                       : "border-transparent"
                   }`}
                 >
                   {cell && (
                     <>
-                      <div className="text-xs font-semibold text-gray-700">{cell.day}</div>
+                      <div className={`text-xs font-semibold ${cell.isMockPromo ? "text-white" : "text-gray-700"}`}>{cell.day}</div>
                       {cell.isMockPromo && (
-                        <div className="mt-1 text-[10px] leading-tight text-blue-700 bg-blue-100 border border-blue-200 rounded px-1 py-0.5">
-                          Mock Promo
+                        <div className="mt-1 text-[10px] font-bold leading-tight text-white bg-blue-600 border border-blue-700 rounded px-1 py-0.5">
+                          SPRING SALE
                         </div>
                       )}
                       {cell.holiday && (
