@@ -3,7 +3,7 @@
 
 name = "pricepilotpro"
 client_id = "YOUR_CLIENT_ID_FROM_SHOPIFY_PARTNERS"
-application_url = "https://your-app.vercel.app"
+application_url = "https://bulk-price-kappa.vercel.app"
 embedded = true
 
 [access_scopes]
@@ -11,7 +11,7 @@ scopes = "read_products,write_products,read_inventory,write_inventory,read_price
 
 [auth]
 redirect_urls = [
-  "https://your-app.vercel.app/api/auth/callback",
+  "https://bulk-price-kappa.vercel.app/api/auth/callback",
   "http://localhost:3000/api/auth/callback"
 ]
 

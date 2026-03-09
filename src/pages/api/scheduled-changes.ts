@@ -46,7 +46,27 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse<ApiResponse<a
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   const db = await initDb();
-  const { name, description, filters, action, startTime, endTime, autoRevert } = req.body;
+  const { name, description, filters, action, startTime, endTime, autoRevert, shop } = req.body;
+
+  if (!shop) {
+    return res.status(400).json({ success: false, error: "Shop parameter required" });
+  }
+
+  const settings = await db.get("SELECT plan FROM settings WHERE shop = ? LIMIT 1", [shop]);
+  const rawPlan = (settings?.plan || "starter") as string;
+  const normalizedPlan =
+    rawPlan === "basic"
+      ? "starter"
+      : rawPlan === "pro" || rawPlan === "advanced"
+      ? "premium"
+      : rawPlan;
+
+  if (normalizedPlan !== "premium") {
+    return res.status(402).json({
+      success: false,
+      error: "Upgrade to Premium to pre-schedule sales and add calendar tasks.",
+    });
+  }
 
   const id = generateId("scheduled");
   const now = new Date().toISOString();

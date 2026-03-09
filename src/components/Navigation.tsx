@@ -4,12 +4,14 @@ import { BarChart3, DollarSign, Clock, FileText, ChevronDown } from "lucide-reac
 import BrandLogo from "@/components/BrandLogo";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Navigation() {
   const router = useRouter();
   const [upgrading, setUpgrading] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
+  const [usageLabel, setUsageLabel] = useState<string>("--");
+  const [usagePlan, setUsagePlan] = useState<"starter" | "premium" | null>(null);
 
   const links = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -55,6 +57,34 @@ export default function Navigation() {
     }
   };
 
+  useEffect(() => {
+    const fetchPlanUsage = async () => {
+      if (!router.isReady) return;
+
+      const urlShop = typeof router.query.shop === "string" ? router.query.shop : "";
+      const storedShop = typeof window !== "undefined" ? localStorage.getItem("shopifyShop") || "" : "";
+      const shop = urlShop || storedShop;
+
+      if (!shop) {
+        setUsageLabel("Install on Shopify to start");
+        setUsagePlan(null);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`/api/plan-usage?shop=${encodeURIComponent(shop)}`);
+        if (response.data?.success) {
+          setUsageLabel(response.data.data.label || "--");
+          setUsagePlan(response.data.data.plan || null);
+        }
+      } catch {
+        setUsageLabel("Usage unavailable");
+      }
+    };
+
+    fetchPlanUsage();
+  }, [router.isReady, router.query.shop]);
+
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50">
       <div className="px-6 py-3 flex items-center justify-between">
@@ -84,6 +114,13 @@ export default function Navigation() {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className={`hidden lg:flex items-center px-3 py-1.5 rounded-md border text-xs font-medium ${
+            usagePlan === "premium"
+              ? "bg-green-50 text-green-700 border-green-200"
+              : "bg-amber-50 text-amber-700 border-amber-200"
+          }`}>
+            {usageLabel}
+          </div>
           <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-medium">
             pri
           </span>

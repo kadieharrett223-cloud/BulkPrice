@@ -2,13 +2,18 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { PriceAction, PriceFilter, ScheduledChange } from "@/types";
-import { Clock, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { calculateNewPrice, formatDate } from "@lib/price-utils";
 
 export default function ScheduledPage() {
   const [changes, setChanges] = useState<ScheduledChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [planType, setPlanType] = useState<"starter" | "premium">("starter");
+  const [usageLabel, setUsageLabel] = useState<string>("--");
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const [taskInput, setTaskInput] = useState("");
+  const [premiumTasks, setPremiumTasks] = useState<string[]>([]);
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const [formData, setFormData] = useState({
@@ -50,7 +55,60 @@ export default function ScheduledPage() {
 
   useEffect(() => {
     fetchScheduledChanges();
+    fetchPlanUsage();
   }, []);
+
+  const getCurrentShop = () => {
+    const query = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const urlShop = query?.get("shop") || "";
+    const storedShop = typeof window !== "undefined" ? localStorage.getItem("shopifyShop") || "" : "";
+    return urlShop || storedShop;
+  };
+
+  const fetchPlanUsage = async () => {
+    try {
+      const shop = getCurrentShop();
+      if (!shop) return;
+
+      const response = await axios.get(`/api/plan-usage?shop=${encodeURIComponent(shop)}`);
+      if (response.data?.success) {
+        setPlanType(response.data.data.plan === "premium" ? "premium" : "starter");
+        setUsageLabel(response.data.data.label || "--");
+
+        if (typeof window !== "undefined") {
+          const taskKey = `premium-calendar-tasks:${shop}`;
+          const savedTasks = localStorage.getItem(taskKey);
+          if (savedTasks) {
+            setPremiumTasks(JSON.parse(savedTasks));
+          }
+        }
+      }
+    } catch {
+      setPlanType("starter");
+      setUsageLabel("--");
+    }
+  };
+
+  const isPremium = planType === "premium";
+
+  const addPremiumTask = () => {
+    if (!isPremium) {
+      toast.error("Upgrade to premium to add scheduling tasks");
+      return;
+    }
+
+    const task = taskInput.trim();
+    if (!task) return;
+
+    const nextTasks = [task, ...premiumTasks].slice(0, 10);
+    setPremiumTasks(nextTasks);
+    setTaskInput("");
+
+    const shop = getCurrentShop();
+    if (shop && typeof window !== "undefined") {
+      localStorage.setItem(`premium-calendar-tasks:${shop}`, JSON.stringify(nextTasks));
+    }
+  };
 
   const fetchScheduledChanges = async () => {
     try {
@@ -83,6 +141,11 @@ export default function ScheduledPage() {
   };
 
   const handleSaveForm = async () => {
+    if (!isPremium) {
+      toast.error("Upgrade to premium to pre-schedule sales");
+      return;
+    }
+
     if (!formData.name || !formData.startTime) {
       toast.error("Name and start time are required");
       return;
@@ -95,12 +158,14 @@ export default function ScheduledPage() {
 
     const filters = buildFilters();
     const action = buildAction();
+    const shop = getCurrentShop();
 
     try {
       const response = await axios.post("/api/scheduled-changes", {
         ...formData,
         filters,
         action,
+        shop,
       });
 
       if (response.data.success) {
@@ -253,6 +318,59 @@ export default function ScheduledPage() {
 
   const samplePreview = calculateNewPrice(50, buildAction());
 
+  const goPrevMonth = () => {
+    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const goNextMonth = () => {
+    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const getHolidayLabel = (year: number, month: number, day: number) => {
+    const key = `${month + 1}-${day}`;
+    const fixedHolidays: Record<string, string> = {
+      "1-1": "New Year",
+      "2-14": "Valentine's Day",
+      "7-4": "Independence Day",
+      "10-31": "Halloween",
+      "11-11": "Veterans Day",
+      "12-24": "Christmas Eve",
+      "12-25": "Christmas",
+      "12-31": "New Year's Eve",
+    };
+
+    if (fixedHolidays[key]) {
+      return fixedHolidays[key];
+    }
+
+    if (month === 10) {
+      const firstDay = new Date(year, 10, 1);
+      const firstThursdayOffset = (4 - firstDay.getDay() + 7) % 7;
+      const thanksgivingDay = 1 + firstThursdayOffset + 21;
+      if (day === thanksgivingDay) {
+        return "Thanksgiving";
+      }
+    }
+
+    return null;
+  };
+
+  const calendarYear = calendarMonth.getFullYear();
+  const calendarMonthIndex = calendarMonth.getMonth();
+  const firstDayOfMonth = new Date(calendarYear, calendarMonthIndex, 1).getDay();
+  const daysInMonth = new Date(calendarYear, calendarMonthIndex + 1, 0).getDate();
+  const calendarCells = Array.from({ length: 42 }, (_, index) => {
+    const day = index - firstDayOfMonth + 1;
+    if (day < 1 || day > daysInMonth) {
+      return null;
+    }
+
+    return {
+      day,
+      holiday: getHolidayLabel(calendarYear, calendarMonthIndex, day),
+    };
+  });
+
   const getStatusBadge = (status: string) => {
     const statusStyles = {
       scheduled: "bg-blue-100 text-blue-800",
@@ -283,13 +401,143 @@ export default function ScheduledPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center space-x-2 bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700"
+          onClick={() => {
+            if (!isPremium) {
+              toast.error("Upgrade to premium to pre-schedule sales, add tasks, and use calendar planning");
+              return;
+            }
+            setShowForm(!showForm);
+          }}
+          className="flex items-center space-x-2 bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-60"
         >
           <Plus className="w-5 h-5" />
-          <span>Schedule Change</span>
+          <span>{isPremium ? "Schedule Change" : "Upgrade for Scheduling"}</span>
         </button>
       </div>
+
+      <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-8">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <CalendarDays className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Sale Calendar</h2>
+            </div>
+            <p className="text-sm text-gray-600">
+              {isPremium
+                ? "Plan sales, track tasks, and schedule campaigns around key dates."
+                : "Upgrade to premium to pre-schedule sales, add tasks, and use calendar planning."}
+            </p>
+          </div>
+          <span
+            className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+              isPremium ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            {usageLabel}
+          </span>
+        </div>
+
+        {!isPremium && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-center gap-2">
+            <Lock className="w-4 h-4" />
+            Upgrade to premium to pre schedule sales, add tasks, and unlock full calendar controls.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={goPrevMonth}
+                className="p-1.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <p className="text-sm font-semibold text-gray-800">
+                {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </p>
+              <button
+                onClick={goNextMonth}
+                className="p-1.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-7 text-xs text-gray-500 mb-1">
+              {[
+                "Sun",
+                "Mon",
+                "Tue",
+                "Wed",
+                "Thu",
+                "Fri",
+                "Sat",
+              ].map((weekday) => (
+                <div key={weekday} className="py-1 text-center font-medium">
+                  {weekday}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {calendarCells.map((cell, index) => (
+                <div
+                  key={index}
+                  className={`min-h-[64px] border rounded-md p-1.5 ${
+                    cell ? "border-gray-200 bg-white" : "border-transparent"
+                  }`}
+                >
+                  {cell && (
+                    <>
+                      <div className="text-xs font-semibold text-gray-700">{cell.day}</div>
+                      {cell.holiday && (
+                        <div className="mt-1 text-[10px] leading-tight text-red-600 bg-red-50 border border-red-100 rounded px-1 py-0.5">
+                          {cell.holiday}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <aside className="border border-gray-200 rounded-lg p-4 h-fit">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Calendar Tasks</h3>
+            <p className="text-xs text-gray-500 mb-3">Track prep work for upcoming promotions.</p>
+
+            <div className="flex gap-2 mb-3">
+              <input
+                value={taskInput}
+                onChange={(e) => setTaskInput(e.target.value)}
+                placeholder={isPremium ? "e.g., Build Spring promo list" : "Upgrade to add tasks"}
+                disabled={!isPremium}
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md disabled:bg-gray-100 disabled:text-gray-500"
+              />
+              <button
+                onClick={addPremiumTask}
+                disabled={!isPremium}
+                className="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
+              >
+                Add
+              </button>
+            </div>
+
+            {premiumTasks.length === 0 ? (
+              <p className="text-xs text-gray-500">No tasks yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {premiumTasks.map((task, index) => (
+                  <li key={`${task}-${index}`} className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+                    {task}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </aside>
+        </div>
+      </section>
 
       {/* Form */}
       {showForm && (
@@ -662,7 +910,13 @@ export default function ScheduledPage() {
             <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 mb-4">No scheduled changes yet</p>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                if (!isPremium) {
+                  toast.error("Upgrade to premium to pre-schedule sales, add tasks, and use calendar planning");
+                  return;
+                }
+                setShowForm(true);
+              }}
               className="text-shopify hover:text-shopify/80 font-semibold"
             >
               Schedule your first price change →

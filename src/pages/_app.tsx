@@ -1,6 +1,7 @@
 import "@styles/globals.css";
 import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import Navigation from "@components/Navigation";
 import { ShopifyAppProvider } from "@components/ShopifyAppProvider";
 import { useRouter } from "next/router";
@@ -17,6 +18,27 @@ export default function App({ Component, pageProps }: AppProps) {
       localStorage.setItem("shopifyShop", shop);
     }
   }, [router.query.shop]);
+
+  // Show a clear notification when app is opened without Shopify install context
+  useEffect(() => {
+    if (!router.isReady || typeof window === "undefined") {
+      return;
+    }
+
+    const urlShop = typeof router.query.shop === "string" ? router.query.shop : "";
+    const storedShop = localStorage.getItem("shopifyShop") || "";
+    const hasShopContext = Boolean(urlShop || storedShop);
+
+    if (hasShopContext) {
+      sessionStorage.removeItem("shopify-install-warning-shown");
+      return;
+    }
+
+    if (!sessionStorage.getItem("shopify-install-warning-shown")) {
+      toast.error("Install on Shopify to start");
+      sessionStorage.setItem("shopify-install-warning-shown", "1");
+    }
+  }, [router.isReady, router.query.shop]);
 
   return (
     <ShopifyAppProvider>
