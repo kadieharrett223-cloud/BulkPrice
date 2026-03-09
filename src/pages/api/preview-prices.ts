@@ -80,9 +80,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // Generate preview
     const changeGroupId = generateChangeGroupId();
     const preview: PricePreview[] = variants.map((v) => {
-      const calculatedPrice = calculateNewPrice(v.price, action);
-      const protectedResult = applyMarginProtection(calculatedPrice, v.price, action, v.cost);
-      const newPrice = protectedResult.price;
+      const targetField = action.targetField || "base";
+      const baseCalculated = calculateNewPrice(v.price, action);
+      const protectedBaseResult = applyMarginProtection(baseCalculated, v.price, action, v.cost);
+      const compareBaseSource = v.compareAtPrice ?? v.price;
+      const compareCalculated = calculateNewPrice(compareBaseSource, action);
+
+      const newPrice = targetField === "compare_at" ? v.price : protectedBaseResult.price;
+      const newCompareAtPrice =
+        targetField === "base"
+          ? v.compareAtPrice
+          : Math.round(compareCalculated * 100) / 100;
 
       return {
         variantId: v.id,
@@ -92,10 +100,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         oldPrice: v.price,
         newPrice,
         oldCompareAtPrice: v.compareAtPrice,
+        newCompareAtPrice,
         change: ((newPrice - v.price) / v.price) * 100,
         savings: Math.max(0, v.price - newPrice),
-        wasProtected: protectedResult.wasProtected,
-        protectionFloor: protectedResult.floor,
+        wasProtected: targetField === "compare_at" ? false : protectedBaseResult.wasProtected,
+        protectionFloor: targetField === "compare_at" ? undefined : protectedBaseResult.floor,
       };
     });
 

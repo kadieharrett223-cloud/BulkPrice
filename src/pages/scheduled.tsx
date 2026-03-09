@@ -431,6 +431,10 @@ export default function ScheduledPage() {
 
   const calendarYear = calendarMonth.getFullYear();
   const calendarMonthIndex = calendarMonth.getMonth();
+  const mockPromoStart = new Date();
+  mockPromoStart.setHours(0, 0, 0, 0);
+  const mockPromoEnd = new Date(mockPromoStart);
+  mockPromoEnd.setDate(mockPromoEnd.getDate() + 13);
   const firstDayOfMonth = new Date(calendarYear, calendarMonthIndex, 1).getDay();
   const daysInMonth = new Date(calendarYear, calendarMonthIndex + 1, 0).getDate();
   const calendarCells = Array.from({ length: 42 }, (_, index) => {
@@ -442,6 +446,13 @@ export default function ScheduledPage() {
     return {
       day,
       holiday: getHolidayLabel(calendarYear, calendarMonthIndex, day),
+      isMockPromo:
+        !isPremium &&
+        (() => {
+          const date = new Date(calendarYear, calendarMonthIndex, day);
+          date.setHours(0, 0, 0, 0);
+          return date >= mockPromoStart && date <= mockPromoEnd;
+        })(),
     };
   });
 
@@ -468,10 +479,10 @@ export default function ScheduledPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Scheduled Price Changes
+            Sale Calendar
           </h1>
           <p className="text-gray-600">
-            Plan your price changes for specific dates and times
+            Plan and run calendar-based promotions for your store
           </p>
         </div>
         <button
@@ -485,7 +496,7 @@ export default function ScheduledPage() {
           className="flex items-center space-x-2 bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-60"
         >
           <Plus className="w-5 h-5" />
-          <span>{isPremium ? "Schedule Change" : "Upgrade for Scheduling"}</span>
+          <span>{isPremium ? "Add Calendar Sale" : "Upgrade to Premium"}</span>
         </button>
       </div>
 
@@ -515,6 +526,12 @@ export default function ScheduledPage() {
           <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-center gap-2">
             <Lock className="w-4 h-4" />
             Upgrade to premium to pre schedule sales, add tasks, and unlock full calendar controls.
+          </div>
+        )}
+
+        {!isPremium && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            Demo shown: mock 2-week promotion window is highlighted to preview premium calendar planning.
           </div>
         )}
 
@@ -559,12 +576,21 @@ export default function ScheduledPage() {
                 <div
                   key={index}
                   className={`min-h-[64px] border rounded-md p-1.5 ${
-                    cell ? "border-gray-200 bg-white" : "border-transparent"
+                    cell
+                      ? cell.isMockPromo
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-gray-200 bg-white"
+                      : "border-transparent"
                   }`}
                 >
                   {cell && (
                     <>
                       <div className="text-xs font-semibold text-gray-700">{cell.day}</div>
+                      {cell.isMockPromo && (
+                        <div className="mt-1 text-[10px] leading-tight text-blue-700 bg-blue-100 border border-blue-200 rounded px-1 py-0.5">
+                          Mock Promo
+                        </div>
+                      )}
                       {cell.holiday && (
                         <div className="mt-1 text-[10px] leading-tight text-red-600 bg-red-50 border border-red-100 rounded px-1 py-0.5">
                           {cell.holiday}

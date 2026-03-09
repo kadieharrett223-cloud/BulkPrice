@@ -4,5 +4,11 @@
     "src/pages/api/**/*.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/run-scheduled",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

@@ -16,7 +16,7 @@ export default function Navigation() {
   const links = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
     { href: "/bulk-pricing", label: "Bulk Pricing", icon: DollarSign },
-    { href: "/scheduled", label: "Scheduled", icon: Clock },
+    { href: "/scheduled", label: "Calendar", icon: Clock },
     { href: "/history", label: "History", icon: FileText },
   ];
 

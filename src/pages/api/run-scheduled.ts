@@ -81,205 +81,230 @@ function buildFilterQuery(filters: PriceFilter, shop: string) {
   return { filterQuery, params };
 }
 
+async function runForShop(shop: string) {
+  const db = await initDb();
+  const sessionId = shopify.session.getOfflineId(shop);
+  const session = await sessionStorage.loadSession(sessionId);
+  if (!session?.accessToken) {
+    return { shop, appliedSchedules: 0, appliedVariants: 0, revertedSchedules: 0, revertedVariants: 0 };
+  }
+
+  const client = new shopify.clients.Graphql({ session });
+  const nowIso = new Date().toISOString();
+
+  const dueSchedules = await db.all(
+    `
+    SELECT * FROM scheduledChanges
+    WHERE shop = ?
+      AND status = 'scheduled'
+      AND startTime <= ?
+    ORDER BY startTime ASC
+  `,
+    [shop, nowIso]
+  );
+
+  let appliedSchedules = 0;
+  let appliedVariants = 0;
+
+  for (const schedule of dueSchedules) {
+    const filters = JSON.parse(schedule.filters || "{}");
+    const action: PriceAction = JSON.parse(schedule.action || "{}");
+    const targetField = action.targetField || "base";
+    const { filterQuery, params } = buildFilterQuery(filters, shop);
+
+    const variants = await db.all(
+      `
+      SELECT v.*, p.id as productId
+      FROM variants v
+      JOIN products p ON v.productId = p.id
+      ${filterQuery}
+    `,
+      params
+    );
+
+    for (const variant of variants) {
+      const baseCalculated = calculateNewPrice(Number(variant.price), action);
+      const { price: protectedBasePrice } = applyMarginProtection(
+        baseCalculated,
+        Number(variant.price),
+        action,
+        variant.cost
+      );
+
+      const compareSource = variant.compareAtPrice ?? variant.price;
+      const compareCalculated = calculateNewPrice(Number(compareSource), action);
+
+      const newPrice = targetField === "compare_at" ? Number(variant.price) : protectedBasePrice;
+      const newCompareAtPrice =
+        targetField === "base"
+          ? variant.compareAtPrice
+          : Math.round(Number(compareCalculated) * 100) / 100;
+
+      try {
+        await updateVariantInShopify(client, variant.shopifyId, newPrice, newCompareAtPrice);
+      } catch {
+        continue;
+      }
+
+      const itemId = generateId("scheduled_item");
+      await db.run(
+        `
+        INSERT INTO scheduledChangeItems (id, shop, scheduledChangeId, variantId, originalPrice)
+        VALUES (?, ?, ?, ?, ?)
+      `,
+        [itemId, shop, schedule.id, variant.id, variant.price]
+      );
+
+      await db.run(
+        "UPDATE variants SET price = ?, compareAtPrice = ?, updatedAt = ? WHERE id = ? AND shop = ?",
+        [newPrice, newCompareAtPrice, nowIso, variant.id, shop]
+      );
+
+      const historyId = generateId("history");
+      await db.run(
+        `
+        INSERT INTO priceHistory (id, shop, variantId, productId, oldPrice, newPrice, oldCompareAtPrice, newCompareAtPrice, changeType, percentage, changeGroupId, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+        [
+          historyId,
+          shop,
+          variant.id,
+          variant.productId,
+          variant.price,
+          newPrice,
+          variant.compareAtPrice,
+          newCompareAtPrice,
+          action.type,
+          action.value,
+          schedule.id,
+          nowIso,
+        ]
+      );
+
+      appliedVariants += 1;
+    }
+
+    const nextStatus = schedule.endTime ? "active" : "completed";
+    await db.run("UPDATE scheduledChanges SET status = ?, updatedAt = ? WHERE id = ? AND shop = ?", [
+      nextStatus,
+      nowIso,
+      schedule.id,
+      shop,
+    ]);
+
+    appliedSchedules += 1;
+  }
+
+  const endedSchedules = await db.all(
+    `
+    SELECT * FROM scheduledChanges
+    WHERE shop = ?
+      AND status = 'active'
+      AND autoRevert = 1
+      AND endTime IS NOT NULL
+      AND endTime <= ?
+  `,
+    [shop, nowIso]
+  );
+
+  let revertedSchedules = 0;
+  let revertedVariants = 0;
+
+  for (const schedule of endedSchedules) {
+    const items = await db.all(
+      "SELECT * FROM scheduledChangeItems WHERE scheduledChangeId = ? AND shop = ?",
+      [schedule.id, shop]
+    );
+
+    for (const item of items) {
+      const variant = await db.get("SELECT * FROM variants WHERE id = ? AND shop = ?", [item.variantId, shop]);
+      if (!variant) continue;
+
+      try {
+        await updateVariantInShopify(client, variant.shopifyId, Number(item.originalPrice), variant.compareAtPrice);
+      } catch {
+        continue;
+      }
+
+      await db.run(
+        "UPDATE variants SET price = ?, updatedAt = ? WHERE id = ? AND shop = ?",
+        [item.originalPrice, nowIso, item.variantId, shop]
+      );
+
+      revertedVariants += 1;
+    }
+
+    await db.run("UPDATE scheduledChanges SET status = 'completed', updatedAt = ? WHERE id = ? AND shop = ?", [
+      nowIso,
+      schedule.id,
+      shop,
+    ]);
+
+    revertedSchedules += 1;
+  }
+
+  if (appliedSchedules > 0 || revertedSchedules > 0) {
+    const logId = generateId("log");
+    await db.run(
+      `
+      INSERT INTO activityLog (id, shop, action, details, affectedCount, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `,
+      [
+        logId,
+        shop,
+        "Scheduled sales runner executed",
+        `Applied ${appliedSchedules} schedule(s), reverted ${revertedSchedules} schedule(s)`,
+        appliedVariants + revertedVariants,
+        nowIso,
+      ]
+    );
+  }
+
+  return { shop, appliedSchedules, appliedVariants, revertedSchedules, revertedVariants };
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
-  if (req.method !== "POST") {
+  if (req.method !== "POST" && req.method !== "GET") {
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
   try {
-    const { shop } = req.body as { shop?: string };
-
-    if (!shop) {
-      return res.status(400).json({ success: false, error: "Shop parameter required" });
-    }
+    const shopFromBody = req.method === "POST" ? (req.body as { shop?: string })?.shop : undefined;
+    const shopFromQuery = typeof req.query.shop === "string" ? req.query.shop : undefined;
+    const requestedShop = shopFromBody || shopFromQuery;
 
     const db = await initDb();
+    const shopsToRun = requestedShop
+      ? [requestedShop]
+      : (await db.all("SELECT DISTINCT shop FROM scheduledChanges WHERE shop IS NOT NULL"))
+          .map((row: any) => row.shop)
+          .filter(Boolean);
 
-    const sessionId = shopify.session.getOfflineId(shop);
-    const session = await sessionStorage.loadSession(sessionId);
-    if (!session?.accessToken) {
-      return res.status(401).json({ success: false, error: "Not authenticated" });
+    const results = [];
+    for (const shop of shopsToRun) {
+      const result = await runForShop(shop);
+      results.push(result);
     }
 
-    const client = new shopify.clients.Graphql({ session });
-    const nowIso = new Date().toISOString();
-
-    const dueSchedules = await db.all(
-      `
-      SELECT * FROM scheduledChanges
-      WHERE shop = ?
-        AND status = 'scheduled'
-        AND startTime <= ?
-      ORDER BY startTime ASC
-    `,
-      [shop, nowIso]
+    const totals = results.reduce(
+      (acc, item) => {
+        acc.appliedSchedules += item.appliedSchedules;
+        acc.appliedVariants += item.appliedVariants;
+        acc.revertedSchedules += item.revertedSchedules;
+        acc.revertedVariants += item.revertedVariants;
+        return acc;
+      },
+      { appliedSchedules: 0, appliedVariants: 0, revertedSchedules: 0, revertedVariants: 0 }
     );
-
-    let appliedSchedules = 0;
-    let appliedVariants = 0;
-
-    for (const schedule of dueSchedules) {
-      const filters = JSON.parse(schedule.filters || "{}");
-      const action: PriceAction = JSON.parse(schedule.action || "{}");
-      const { filterQuery, params } = buildFilterQuery(filters, shop);
-
-      const variants = await db.all(
-        `
-        SELECT v.*, p.id as productId
-        FROM variants v
-        JOIN products p ON v.productId = p.id
-        ${filterQuery}
-      `,
-        params
-      );
-
-      for (const variant of variants) {
-        const calculatedPrice = calculateNewPrice(Number(variant.price), action);
-        const { price: newPrice } = applyMarginProtection(
-          calculatedPrice,
-          Number(variant.price),
-          action,
-          variant.cost
-        );
-
-        let newCompareAtPrice = variant.compareAtPrice;
-        if (action.includeCompareAt && action.compareAtAdjustment && newCompareAtPrice) {
-          if (action.compareAtAdjustment.type === "percentage") {
-            newCompareAtPrice = Math.round((newPrice * (1 + action.compareAtAdjustment.value / 100)) * 100) / 100;
-          } else {
-            newCompareAtPrice = Math.round((newPrice + action.compareAtAdjustment.value) * 100) / 100;
-          }
-        }
-
-        try {
-          await updateVariantInShopify(client, variant.shopifyId, newPrice, newCompareAtPrice);
-        } catch {
-          continue;
-        }
-
-        const itemId = generateId("scheduled_item");
-        await db.run(
-          `
-          INSERT INTO scheduledChangeItems (id, shop, scheduledChangeId, variantId, originalPrice)
-          VALUES (?, ?, ?, ?, ?)
-        `,
-          [itemId, shop, schedule.id, variant.id, variant.price]
-        );
-
-        await db.run(
-          "UPDATE variants SET price = ?, compareAtPrice = ?, updatedAt = ? WHERE id = ? AND shop = ?",
-          [newPrice, newCompareAtPrice, nowIso, variant.id, shop]
-        );
-
-        const historyId = generateId("history");
-        await db.run(
-          `
-          INSERT INTO priceHistory (id, shop, variantId, productId, oldPrice, newPrice, oldCompareAtPrice, newCompareAtPrice, changeType, percentage, changeGroupId, timestamp)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-          [
-            historyId,
-            shop,
-            variant.id,
-            variant.productId,
-            variant.price,
-            newPrice,
-            variant.compareAtPrice,
-            newCompareAtPrice,
-            action.type,
-            action.value,
-            schedule.id,
-            nowIso,
-          ]
-        );
-
-        appliedVariants += 1;
-      }
-
-      const nextStatus = schedule.endTime ? "active" : "completed";
-      await db.run("UPDATE scheduledChanges SET status = ?, updatedAt = ? WHERE id = ? AND shop = ?", [
-        nextStatus,
-        nowIso,
-        schedule.id,
-        shop,
-      ]);
-
-      appliedSchedules += 1;
-    }
-
-    const endedSchedules = await db.all(
-      `
-      SELECT * FROM scheduledChanges
-      WHERE shop = ?
-        AND status = 'active'
-        AND autoRevert = 1
-        AND endTime IS NOT NULL
-        AND endTime <= ?
-    `,
-      [shop, nowIso]
-    );
-
-    let revertedSchedules = 0;
-    let revertedVariants = 0;
-
-    for (const schedule of endedSchedules) {
-      const items = await db.all(
-        "SELECT * FROM scheduledChangeItems WHERE scheduledChangeId = ? AND shop = ?",
-        [schedule.id, shop]
-      );
-
-      for (const item of items) {
-        const variant = await db.get("SELECT * FROM variants WHERE id = ? AND shop = ?", [item.variantId, shop]);
-        if (!variant) continue;
-
-        try {
-          await updateVariantInShopify(client, variant.shopifyId, Number(item.originalPrice), variant.compareAtPrice);
-        } catch {
-          continue;
-        }
-
-        await db.run(
-          "UPDATE variants SET price = ?, updatedAt = ? WHERE id = ? AND shop = ?",
-          [item.originalPrice, nowIso, item.variantId, shop]
-        );
-
-        revertedVariants += 1;
-      }
-
-      await db.run("UPDATE scheduledChanges SET status = 'completed', updatedAt = ? WHERE id = ? AND shop = ?", [
-        nowIso,
-        schedule.id,
-        shop,
-      ]);
-
-      revertedSchedules += 1;
-    }
-
-    if (appliedSchedules > 0 || revertedSchedules > 0) {
-      const logId = generateId("log");
-      await db.run(
-        `
-        INSERT INTO activityLog (id, shop, action, details, affectedCount, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `,
-        [
-          logId,
-          shop,
-          "Scheduled sales runner executed",
-          `Applied ${appliedSchedules} schedule(s), reverted ${revertedSchedules} schedule(s)`,
-          appliedVariants + revertedVariants,
-          nowIso,
-        ]
-      );
-    }
 
     return res.status(200).json({
       success: true,
       data: {
-        appliedSchedules,
-        appliedVariants,
-        revertedSchedules,
-        revertedVariants,
+        ...totals,
+        shopsProcessed: shopsToRun.length,
+        byShop: results,
       },
     });
   } catch (error: any) {

@@ -24,7 +24,7 @@ const STEPS: Array<{ key: Step; title: string }> = [
 export default function BulkPricingPage() {
   const [currentStep, setCurrentStep] = useState<Step>("action");
   const [filters, setFilters] = useState<PriceFilter>({});
-  const [action, setAction] = useState<PriceAction>({ type: "percentage_increase", value: 10 });
+  const [action, setAction] = useState<PriceAction>({ type: "percentage_increase", value: 10, targetField: "base" });
   const [preview, setPreview] = useState<PricePreview[]>([]);
   const [changeGroupId, setChangeGroupId] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -205,7 +205,7 @@ export default function BulkPricingPage() {
         // Reset
         setTimeout(() => {
           setCurrentStep("action");
-          setAction({ type: "percentage_increase", value: 10 });
+          setAction({ type: "percentage_increase", value: 10, targetField: "base" });
           setPreview([]);
           setChangeGroupId("");
           setRunProgress(0);
@@ -399,6 +399,21 @@ export default function BulkPricingPage() {
           </div>
 
           <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Price Field to Update</label>
+              <select
+                value={action.targetField || "base"}
+                onChange={(event) =>
+                  setAction({ ...action, targetField: event.target.value as "base" | "compare_at" | "both" })
+                }
+                className="w-full border border-gray-200 rounded-md p-2 text-sm"
+              >
+                <option value="base">Base price only</option>
+                <option value="compare_at">Compare-at price only</option>
+                <option value="both">Both base and compare-at prices</option>
+              </select>
+            </div>
+
             <select
               value={action.type}
               onChange={(event) => setAction({ ...action, type: event.target.value as PriceAction["type"] })}

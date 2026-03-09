@@ -124,27 +124,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const updates: any[] = [];
     let failedCount = 0;
+    const targetField = action.targetField || "base";
 
     for (const variant of variants) {
-      const calculatedPrice = calculateNewPrice(variant.price, action);
-      const { price: newPrice } = applyMarginProtection(
-        calculatedPrice,
+      const baseCalculated = calculateNewPrice(variant.price, action);
+      const { price: protectedBasePrice } = applyMarginProtection(
+        baseCalculated,
         variant.price,
         action,
         variant.cost
       );
-      let newCompareAtPrice = variant.compareAtPrice;
 
-      // Update compare-at price if specified
-      if (action.includeCompareAt && action.compareAtAdjustment) {
-        if (newCompareAtPrice) {
-          if (action.compareAtAdjustment.type === "percentage") {
-            newCompareAtPrice = Math.round((newPrice * (1 + action.compareAtAdjustment.value / 100)) * 100) / 100;
-          } else {
-            newCompareAtPrice = Math.round((newPrice + action.compareAtAdjustment.value) * 100) / 100;
-          }
-        }
-      }
+      const compareSource = variant.compareAtPrice ?? variant.price;
+      const compareCalculated = calculateNewPrice(compareSource, action);
+
+      const newPrice = targetField === "compare_at" ? variant.price : protectedBasePrice;
+      const newCompareAtPrice =
+        targetField === "base"
+          ? variant.compareAtPrice
+          : Math.round(compareCalculated * 100) / 100;
 
       // Update variant in Shopify via GraphQL
       try {
