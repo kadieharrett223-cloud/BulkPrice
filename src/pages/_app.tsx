@@ -59,6 +59,21 @@ export default function App({ Component, pageProps }: AppProps) {
   const [isDemo, setIsDemo] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
+  const redirectToAuth = (shop: string) => {
+    if (typeof window === "undefined") return;
+
+    const key = `shopify-reauth-${shop}`;
+    const lastAttempt = Number(sessionStorage.getItem(key) || "0");
+    const now = Date.now();
+
+    if (now - lastAttempt < 4000) {
+      return;
+    }
+
+    sessionStorage.setItem(key, String(now));
+    window.location.href = `/api/auth?shop=${encodeURIComponent(shop)}`;
+  };
+
   // Save shop parameter to localStorage when available
   useEffect(() => {
     const shop = router.query.shop as string;
@@ -95,8 +110,6 @@ export default function App({ Component, pageProps }: AppProps) {
 
     const urlParams = new URLSearchParams(window.location.search);
     const shopFromUrl = urlParams.get("shop") || (typeof router.query.shop === "string" ? router.query.shop : "");
-    const hostFromUrl = urlParams.get("host") || (typeof router.query.host === "string" ? router.query.host : "");
-    const isEmbeddedContext = Boolean(hostFromUrl);
 
     if (!shopFromUrl || shopFromUrl === DEMO_SHOP) {
       setCheckingAuth(false);
@@ -115,19 +128,14 @@ export default function App({ Component, pageProps }: AppProps) {
         const authenticated = Boolean(response.data?.data?.authenticated);
 
         if (!authenticated) {
-          if (!isEmbeddedContext) {
-            window.location.href = `/api/auth?shop=${encodeURIComponent(shopFromUrl)}`;
-            return;
-          }
-
-          setCheckingAuth(false);
+          redirectToAuth(shopFromUrl);
           return;
         }
       } catch (error) {
         console.error("Error verifying auth status:", error);
 
-        if (axios.isAxiosError(error) && error.response?.status === 401 && !isEmbeddedContext) {
-          window.location.href = `/api/auth?shop=${encodeURIComponent(shopFromUrl)}`;
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          redirectToAuth(shopFromUrl);
           return;
         }
 
