@@ -279,7 +279,7 @@ export default function Dashboard() {
           </Link>
 
           <Link
-            href="/scheduled"
+            href="/scheduled?new=1"
             className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md hover:border-blue-300 transition group"
           >
             <div className="flex items-center gap-2 mb-2 text-gray-900">
@@ -318,7 +318,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Upcoming Price Campaigns</h2>
             <Link
-              href="/scheduled"
+              href="/scheduled?new=1"
               className="text-sm text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
             >
               View all

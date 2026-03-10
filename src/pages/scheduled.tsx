@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useRouter } from "next/router";
 import { PriceAction, PriceFilter, ScheduledChange } from "@/types";
 import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Lock, Pencil } from "lucide-react";
 import { calculateNewPrice, formatDate } from "@lib/price-utils";
@@ -9,6 +10,7 @@ import { resolveShop } from "@lib/use-shop";
 const SALE_DISCOUNT_PRESETS = [10, 15, 20, 25];
 
 export default function ScheduledPage() {
+  const router = useRouter();
   const [changes, setChanges] = useState<ScheduledChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -68,6 +70,23 @@ export default function ScheduledPage() {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const newParam = router.query.new;
+    const createParam = router.query.create;
+    const wantsCreate =
+      newParam === "1" ||
+      newParam === "true" ||
+      createParam === "1" ||
+      createParam === "true";
+
+    if (wantsCreate) {
+      setEditingScheduleId(null);
+      setShowForm(true);
+    }
+  }, [router.isReady, router.query.new, router.query.create]);
 
   const getCurrentShop = () => resolveShop();
 
@@ -897,6 +916,11 @@ export default function ScheduledPage() {
 
                 <p className="text-xs text-blue-700 mt-3">
                   Set a date range to run a timed sale (for example: 15% off from Friday 9:00 AM to Sunday 11:59 PM).
+                </p>
+
+                <p className="text-xs text-gray-700 mt-2">
+                  For April 5 at 8:00 PM Pacific time, use <strong>2026-04-05 20:00</strong> while your device timezone is
+                  <strong> America/Los_Angeles</strong>.
                 </p>
 
                 <p className="text-xs text-gray-500 mt-3">Timezone: {timezone} (store timezone recommended)</p>
