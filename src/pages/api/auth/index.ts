@@ -48,7 +48,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const callbackPath = "/api/auth/callback";
 
     // auth.begin() sets the state cookie on res and returns the Shopify OAuth URL.
-    // It does NOT send the response itself, so we can branch on embedded vs top-level.
+    // It does NOT send the HTTP body/redirect itself, so we can branch on embedded vs top.
+    // Pass a no-op fake response so auth.begin() only sets the Set-Cookie header;
+    // we will send the actual response ourselves below.
     const authUrl = await shopify.auth.begin({
       shop: sanitizedShop,
       callbackPath,
@@ -62,8 +64,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       typeof req.query.host === "string" || req.query.embedded === "1";
 
     if (!isEmbedded) {
-      // Normal top-level browser — just redirect into OAuth
-      return res.redirect(authUrl);
+      // Normal top-level browser — redirect into Shopify OAuth.
+      // auth.begin() may have already called res.redirect() in some SDK versions;
+      // only call it ourselves if the response hasn't been sent yet.
+      if (!res.writableEnded) {
+        return res.redirect(authUrl);
+      }
+      return;
     }
 
     // Embedded (inside an iframe) — perform an App Bridge breakout so the OAuth

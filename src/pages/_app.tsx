@@ -71,7 +71,17 @@ export default function App({ Component, pageProps }: AppProps) {
     }
 
     sessionStorage.setItem(key, String(now));
-    window.location.href = `/api/auth?shop=${encodeURIComponent(shop)}`;
+
+    // Forward host + embedded so /api/auth can detect iframe context and break out.
+    const urlParams = new URLSearchParams(window.location.search);
+    const host = urlParams.get("host");
+    const isEmbedded = Boolean(host) || urlParams.get("embedded") === "1";
+
+    const authParams = new URLSearchParams({ shop });
+    if (host) authParams.set("host", host);
+    if (isEmbedded) authParams.set("embedded", "1");
+
+    window.location.href = `/api/auth?${authParams.toString()}`;
   };
 
   // Save shop parameter to localStorage when available
