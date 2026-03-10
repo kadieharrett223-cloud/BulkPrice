@@ -2,7 +2,14 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
-import { DEMO_SHOP, isDemoShop, MOCK_SCHEDULED_CHANGES } from "@lib/mock-data";
+import {
+  DEMO_SHOP,
+  addMockScheduledChange,
+  deleteMockScheduledChange,
+  getMockScheduledChanges,
+  isDemoShop,
+  updateMockScheduledChange,
+} from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   try {
@@ -11,9 +18,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     if (isDemoShop(shop)) {
       if (req.method === "GET") {
         const { status = "scheduled" } = req.query;
+        const allChanges = getMockScheduledChanges();
         const filtered = status === "all"
-          ? MOCK_SCHEDULED_CHANGES
-          : MOCK_SCHEDULED_CHANGES.filter((c) => c.status === status);
+          ? allChanges
+          : allChanges.filter((c) => c.status === status);
         const result = filtered.map((c) => ({
           ...c,
           filters: JSON.parse(c.filters),
@@ -22,13 +30,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         return res.status(200).json({ success: true, data: result });
       }
       if (req.method === "POST") {
+        const id = generateId("mock-sched");
+        const now = new Date().toISOString();
+        const created = addMockScheduledChange({
+          id,
+          shop,
+          name: req.body?.name || "Untitled Schedule",
+          description: req.body?.description || "",
+          filters: JSON.stringify(req.body?.filters || {}),
+          action: JSON.stringify(req.body?.action || {}),
+          startTime: req.body?.startTime || now,
+          endTime: req.body?.endTime || null,
+          autoRevert: Boolean(req.body?.autoRevert),
+          status: "scheduled",
+          createdAt: now,
+        });
+
         return res.status(200).json({
           success: true,
-          data: { id: `mock-sched-${Date.now()}`, ...req.body, status: "scheduled" },
+          data: {
+            ...created,
+            filters: JSON.parse(created.filters),
+            action: JSON.parse(created.action),
+          },
         });
       }
-      if (req.method === "PUT" || req.method === "DELETE") {
-        return res.status(200).json({ success: true, data: {} });
+      if (req.method === "PUT") {
+        const id = req.body?.id as string;
+        if (!id) {
+          return res.status(400).json({ success: false, error: "ID is required" });
+        }
+
+        const updated = updateMockScheduledChange(id, (current) => ({
+          ...current,
+          name: typeof req.body?.name === "string" ? req.body.name : current.name,
+          description: typeof req.body?.description === "string" ? req.body.description : current.description,
+          filters: req.body?.filters ? JSON.stringify(req.body.filters) : current.filters,
+          action: req.body?.action ? JSON.stringify(req.body.action) : current.action,
+          startTime: req.body?.startTime || current.startTime,
+          endTime: req.body?.endTime ?? current.endTime,
+          autoRevert: typeof req.body?.autoRevert === "boolean" ? req.body.autoRevert : current.autoRevert,
+          status: req.body?.status || current.status,
+          createdAt: current.createdAt,
+        }));
+
+        if (!updated) {
+          return res.status(404).json({ success: false, error: "Schedule not found" });
+        }
+
+        return res.status(200).json({
+          success: true,
+          data: {
+            ...updated,
+            filters: JSON.parse(updated.filters),
+            action: JSON.parse(updated.action),
+          },
+        });
+      }
+      if (req.method === "DELETE") {
+        const id = (req.query.id as string | undefined) || req.body?.id;
+        if (!id) {
+          return res.status(400).json({ success: false, error: "ID is required" });
+        }
+
+        const deleted = deleteMockScheduledChange(id);
+        return res.status(200).json({ success: deleted, data: { id } });
       }
       return res.status(405).json({ success: false, error: "Method not allowed" });
     }

@@ -334,6 +334,37 @@ export const MOCK_SCHEDULED_CHANGES = [
   },
 ];
 
+type MockScheduledChange = (typeof MOCK_SCHEDULED_CHANGES)[number];
+
+let _mockScheduledChanges: MockScheduledChange[] = MOCK_SCHEDULED_CHANGES.map((change) => ({ ...change }));
+
+export function getMockScheduledChanges(): MockScheduledChange[] {
+  return _mockScheduledChanges.map((change) => ({ ...change }));
+}
+
+export function addMockScheduledChange(change: MockScheduledChange): MockScheduledChange {
+  _mockScheduledChanges = [change, ..._mockScheduledChanges];
+  return { ...change };
+}
+
+export function updateMockScheduledChange(
+  id: string,
+  updater: (current: MockScheduledChange) => MockScheduledChange
+): MockScheduledChange | null {
+  const index = _mockScheduledChanges.findIndex((change) => change.id === id);
+  if (index === -1) return null;
+
+  const updated = updater(_mockScheduledChanges[index]);
+  _mockScheduledChanges[index] = updated;
+  return { ...updated };
+}
+
+export function deleteMockScheduledChange(id: string): boolean {
+  const before = _mockScheduledChanges.length;
+  _mockScheduledChanges = _mockScheduledChanges.filter((change) => change.id !== id);
+  return _mockScheduledChanges.length < before;
+}
+
 // ─── In-memory log accumulator for demo apply-prices ─────────────────────────
 
 interface DemoLogEntry {

@@ -6,7 +6,7 @@ import { PriceAction, PriceFilter, ScheduledChange } from "@/types";
 import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Lock, Pencil } from "lucide-react";
 import { calculateNewPrice, formatDate } from "@lib/price-utils";
 import { resolveShop } from "@lib/use-shop";
-import { DEMO_SHOP, MOCK_SCHEDULED_CHANGES } from "@lib/mock-data";
+import { DEMO_SHOP } from "@lib/mock-data";
 
 const SALE_DISCOUNT_PRESETS = [10, 15, 20, 25];
 
@@ -53,6 +53,8 @@ export default function ScheduledPage() {
 
   const [collectionInput, setCollectionInput] = useState("");
   const [vendorInput, setVendorInput] = useState("");
+  const [collectionOptions, setCollectionOptions] = useState<string[]>([]);
+  const [vendorOptions, setVendorOptions] = useState<string[]>([]);
   const [productTypeInput, setProductTypeInput] = useState("");
   const [status, setStatus] = useState<"active" | "draft" | "archived" | "">("");
   const [priceMin, setPriceMin] = useState(0);
@@ -75,6 +77,7 @@ export default function ScheduledPage() {
     runScheduledChanges();
     fetchScheduledChanges();
     fetchPlanUsage();
+    fetchTargetOptions();
 
     const interval = setInterval(() => {
       runScheduledChanges();
@@ -133,7 +136,47 @@ export default function ScheduledPage() {
     }
   };
 
+  const fetchTargetOptions = async () => {
+    try {
+      const shop = getCurrentShop();
+      if (!shop) return;
+
+      const response = await axios.get(`/api/products?limit=250&offset=0&shop=${encodeURIComponent(shop)}`);
+      const products = response.data?.data?.products || [];
+
+      const collections = new Set<string>();
+      const vendors = new Set<string>();
+
+      for (const product of products) {
+        if (product?.vendor) {
+          vendors.add(String(product.vendor).trim());
+        }
+
+        const rawCollections = product?.collections;
+        if (Array.isArray(rawCollections)) {
+          rawCollections
+            .map((value) => String(value).trim())
+            .filter(Boolean)
+            .forEach((value) => collections.add(value));
+        } else if (typeof rawCollections === "string") {
+          rawCollections
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .forEach((value) => collections.add(value));
+        }
+      }
+
+      setCollectionOptions(Array.from(collections).sort((a, b) => a.localeCompare(b)));
+      setVendorOptions(Array.from(vendors).sort((a, b) => a.localeCompare(b)));
+    } catch {
+      setCollectionOptions([]);
+      setVendorOptions([]);
+    }
+  };
+
   const isPremium = planType === "premium";
+  const canManageSchedules = isPremium || getCurrentShop() === DEMO_SHOP;
 
   const addPremiumTask = () => {
     if (!isPremium) {
@@ -158,18 +201,6 @@ export default function ScheduledPage() {
     try {
       const shop = getCurrentShop();
       if (!shop) {
-        setLoading(false);
-        return;
-      }
-
-      if (shop === DEMO_SHOP) {
-        const mockChanges: ScheduledChange[] = MOCK_SCHEDULED_CHANGES.map((change) => ({
-          ...change,
-          filters: JSON.parse(change.filters),
-          action: JSON.parse(change.action),
-        })) as ScheduledChange[];
-
-        setChanges(mockChanges);
         setLoading(false);
         return;
       }
@@ -252,7 +283,7 @@ export default function ScheduledPage() {
   };
 
   const handleSaveForm = async () => {
-    if (!isPremium) {
+    if (!canManageSchedules) {
       toast.error("Upgrade to premium to pre-schedule sales");
       return;
     }
@@ -568,7 +599,7 @@ export default function ScheduledPage() {
         </div>
         <button
           onClick={() => {
-            if (!isPremium) {
+            if (!canManageSchedules) {
               toast.error("Upgrade to premium to pre-schedule sales, add tasks, and use calendar planning");
               return;
             }
@@ -577,7 +608,7 @@ export default function ScheduledPage() {
           className="btn-primary inline-flex items-center space-x-2"
         >
           <Plus className="w-5 h-5" />
-          <span>{isPremium ? "Add Calendar Sale" : "Upgrade to Premium"}</span>
+          <span>{canManageSchedules ? "Add Calendar Sale" : "Upgrade to Premium"}</span>
         </button>
       </div>
 
@@ -914,8 +945,14 @@ export default function ScheduledPage() {
                       value={collectionInput}
                       onChange={(e) => setCollectionInput(e.target.value)}
                       placeholder="Summer Collection, Electronics, Winter Collection"
+                      list="collection-options"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
+                    <datalist id="collection-options">
+                      {collectionOptions.map((option) => (
+                        <option key={option} value={option} />
+                      ))}
+                    </datalist>
                     <p className="text-xs text-gray-500 mt-1">Add multiple with commas.</p>
                   </div>
                   <div>
@@ -924,8 +961,14 @@ export default function ScheduledPage() {
                       value={vendorInput}
                       onChange={(e) => setVendorInput(e.target.value)}
                       placeholder="Nike, Adidas, Puma"
+                      list="vendor-options"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
+                    <datalist id="vendor-options">
+                      {vendorOptions.map((option) => (
+                        <option key={option} value={option} />
+                      ))}
+                    </datalist>
                     <p className="text-xs text-gray-500 mt-1">Add multiple with commas.</p>
                   </div>
                   <div>
@@ -1151,7 +1194,7 @@ export default function ScheduledPage() {
             <p className="text-gray-500 mb-6">Start planning your first calendar promotion</p>
             <button
               onClick={() => {
-                if (!isPremium) {
+                if (!canManageSchedules) {
                   toast.error("Upgrade to premium to pre-schedule sales, add tasks, and use calendar planning");
                   return;
                 }
