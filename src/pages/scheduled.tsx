@@ -6,6 +6,8 @@ import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRig
 import { calculateNewPrice, formatDate } from "@lib/price-utils";
 import { resolveShop } from "@lib/use-shop";
 
+const SALE_DISCOUNT_PRESETS = [10, 15, 20, 25];
+
 export default function ScheduledPage() {
   const [changes, setChanges] = useState<ScheduledChange[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,6 +390,18 @@ export default function ScheduledPage() {
 
   const samplePreview = calculateNewPrice(50, buildAction());
 
+  const applyPercentageSalePreset = (percent: number) => {
+    setRuleType("percentage_decrease");
+    setRuleValue(percent);
+
+    if (!formData.name.trim()) {
+      setFormData((prev) => ({
+        ...prev,
+        name: `${percent}% Off Sale`,
+      }));
+    }
+  };
+
   const goPrevMonth = () => {
     setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
@@ -669,6 +683,30 @@ export default function ScheduledPage() {
 
               <section className="border border-gray-200 rounded-xl p-5">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Pricing Rule</h3>
+
+                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-sm font-semibold text-blue-900 mb-2">Quick Sale by Percentage</p>
+                  <div className="flex flex-wrap gap-2">
+                    {SALE_DISCOUNT_PRESETS.map((percent) => (
+                      <button
+                        key={percent}
+                        type="button"
+                        onClick={() => applyPercentageSalePreset(percent)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                          ruleType === "percentage_decrease" && Number(ruleValue) === percent
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-blue-700 border-blue-200 hover:bg-blue-100"
+                        }`}
+                      >
+                        {percent}% OFF
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-blue-800 mt-2">
+                    Example: choose <strong>15% OFF</strong>, then set your sale start and end dates below.
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Rule Type</label>
@@ -677,7 +715,7 @@ export default function ScheduledPage() {
                       onChange={(e) => setRuleType(e.target.value as PriceAction["type"])}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     >
-                      <option value="percentage_decrease">Decrease price by %</option>
+                      <option value="percentage_decrease">Sale discount by %</option>
                       <option value="percentage_increase">Increase price by %</option>
                       <option value="fixed_decrease">Decrease by fixed amount</option>
                       <option value="fixed_increase">Increase by fixed amount</option>
@@ -701,7 +739,9 @@ export default function ScheduledPage() {
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Value</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        {ruleType === "percentage_decrease" ? "Discount Percentage" : "Value"}
+                      </label>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
@@ -836,7 +876,7 @@ export default function ScheduledPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Start</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Sale Start Date & Time</label>
                     <input
                       type="datetime-local"
                       value={formData.startTime}
@@ -845,7 +885,7 @@ export default function ScheduledPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">End</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Sale End Date & Time</label>
                     <input
                       type="datetime-local"
                       value={formData.endTime}
@@ -854,6 +894,10 @@ export default function ScheduledPage() {
                     />
                   </div>
                 </div>
+
+                <p className="text-xs text-blue-700 mt-3">
+                  Set a date range to run a timed sale (for example: 15% off from Friday 9:00 AM to Sunday 11:59 PM).
+                </p>
 
                 <p className="text-xs text-gray-500 mt-3">Timezone: {timezone} (store timezone recommended)</p>
 
