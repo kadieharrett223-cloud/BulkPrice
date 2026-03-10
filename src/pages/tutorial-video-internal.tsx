@@ -1,7 +1,5 @@
 import Head from "next/head";
 
-const TUTORIAL_VIDEO_URL = "";
-
 export default function TutorialVideoInternalPage() {
   return (
     <>
@@ -19,19 +17,14 @@ export default function TutorialVideoInternalPage() {
             </p>
 
             <div className="mt-6 rounded-2xl overflow-hidden border border-blue-100 bg-black/5">
-              {TUTORIAL_VIDEO_URL ? (
-                <iframe
-                  src={TUTORIAL_VIDEO_URL}
-                  title="BulkPrice Tutorial Video"
-                  className="w-full aspect-video"
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <div className="w-full aspect-video flex items-center justify-center text-sm text-gray-600 px-6 text-center">
-                  Video URL pending. Share your video link and it will appear here.
-                </div>
-              )}
+              <video
+                className="w-full aspect-video"
+                controls
+                preload="metadata"
+                src="/bulk-price-tutorial.mp4"
+              >
+                Your browser does not support the video tag.
+              </video>
             </div>
           </section>
         </div>
