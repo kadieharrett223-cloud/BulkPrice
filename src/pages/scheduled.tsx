@@ -6,6 +6,7 @@ import { PriceAction, PriceFilter, ScheduledChange } from "@/types";
 import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Lock, Pencil } from "lucide-react";
 import { calculateNewPrice, formatDate } from "@lib/price-utils";
 import { resolveShop } from "@lib/use-shop";
+import { DEMO_SHOP, MOCK_SCHEDULED_CHANGES } from "@lib/mock-data";
 
 const SALE_DISCOUNT_PRESETS = [10, 15, 20, 25];
 
@@ -106,6 +107,13 @@ export default function ScheduledPage() {
       const shop = getCurrentShop();
       if (!shop) return;
 
+      if (shop === DEMO_SHOP) {
+        setPlanType("starter");
+        setUsageLabel("Demo mode – mock calendar preview");
+        setPremiumTasks([]);
+        return;
+      }
+
       const response = await axios.get(`/api/plan-usage?shop=${encodeURIComponent(shop)}`);
       if (response.data?.success) {
         setPlanType(response.data.data.plan === "premium" ? "premium" : "starter");
@@ -150,6 +158,18 @@ export default function ScheduledPage() {
     try {
       const shop = getCurrentShop();
       if (!shop) {
+        setLoading(false);
+        return;
+      }
+
+      if (shop === DEMO_SHOP) {
+        const mockChanges: ScheduledChange[] = MOCK_SCHEDULED_CHANGES.map((change) => ({
+          ...change,
+          filters: JSON.parse(change.filters),
+          action: JSON.parse(change.action),
+        })) as ScheduledChange[];
+
+        setChanges(mockChanges);
         setLoading(false);
         return;
       }

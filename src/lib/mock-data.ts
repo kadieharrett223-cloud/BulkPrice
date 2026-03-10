@@ -309,8 +309,8 @@ export const MOCK_SCHEDULED_CHANGES = [
   {
     id: "mock-sched-1",
     shop: DEMO_SHOP,
-    name: "Summer Sale Launch",
-    description: "20% off all Apparel",
+    name: "Spring Sale Launch",
+    description: "20% off all Apparel (Spring Sale)",
     filters: JSON.stringify({ productTypes: ["Apparel"] }),
     action: JSON.stringify({ type: "percentage_decrease", value: 20, targetField: "compare_at" }),
     startTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
