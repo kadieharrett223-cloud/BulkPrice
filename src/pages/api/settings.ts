@@ -2,9 +2,15 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
+import { verifySessionToken } from "@/lib/verify-session-token";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   try {
+    const tokenPayload = await verifySessionToken(req);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
     if (req.method === "GET") {
       return await handleGet(req, res);
     } else if (req.method === "POST" || req.method === "PUT") {

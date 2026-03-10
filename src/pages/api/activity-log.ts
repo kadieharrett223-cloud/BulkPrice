@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse, ActivityLog } from "@/types";
 import { DEMO_SHOP, isDemoShop, getDemoLog } from "@lib/mock-data";
+import { verifySessionToken } from "@/lib/verify-session-token";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<ActivityLog[]>>) {
   if (req.method !== "GET") {
@@ -16,6 +17,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     if (isDemoShop(shop)) {
       const logs = getDemoLog(parseInt(limit as string), parseInt(offset as string));
       return res.status(200).json({ success: true, data: logs as any });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     const db = await initDb();

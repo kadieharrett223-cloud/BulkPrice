@@ -3,6 +3,7 @@ import { initDb } from "@lib/db";
 import { PriceFilter, PriceAction, ApiResponse, PriceChangeResponse, PricePreview } from "@/types";
 import { applyMarginProtection, calculateNewPrice, generateChangeGroupId } from "@lib/price-utils";
 import { isDemoShop, getMockVariants, getMockProducts } from "@lib/mock-data";
+import { verifySessionToken } from "@/lib/verify-session-token";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<PriceChangeResponse>>) {
   if (req.method !== "POST") {
@@ -72,6 +73,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         success: true,
         data: { changeGroupId, affectedCount: matchedVariants.length, preview },
       });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
 

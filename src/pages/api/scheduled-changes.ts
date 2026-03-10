@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
+import { verifySessionToken } from "@/lib/verify-session-token";
 import {
   DEMO_SHOP,
   addMockScheduledChange,
@@ -97,6 +98,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         return res.status(200).json({ success: deleted, data: { id } });
       }
       return res.status(405).json({ success: false, error: "Method not allowed" });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     // Real Shopify store routing

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { DEMO_SHOP, isDemoShop } from "@lib/mock-data";
+import { verifySessionToken } from "@/lib/verify-session-token";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -16,6 +17,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         success: true,
         data: { plan: "premium", used: null, limit: null, remaining: null, label: "Demo mode – unlimited changes" },
       });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     const db = await initDb();

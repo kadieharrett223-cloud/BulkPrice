@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse, RollbackResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
+import { verifySessionToken } from "@/lib/verify-session-token";
 import {
   clearDemoRollbackSnapshot,
   getDemoRollbackSnapshot,
@@ -52,6 +53,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           timestamp: new Date().toISOString(),
         },
       });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     const db = await initDb();

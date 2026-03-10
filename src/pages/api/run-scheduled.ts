@@ -2,8 +2,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse, PriceAction, PriceFilter } from "@/types";
 import { applyMarginProtection, calculateNewPrice, generateId } from "@lib/price-utils";
+import { isDemoShop } from "@lib/mock-data";
 import { sessionStorage } from "@lib/session-storage";
 import { shopify } from "@lib/shopify-config";
+import { verifySessionToken } from "@/lib/verify-session-token";
 
 async function updateVariantInShopify(client: any, shopifyVariantId: string, price: number, compareAtPrice?: number | null) {
   const variantGid = `gid://shopify/ProductVariant/${shopifyVariantId}`;
@@ -274,6 +276,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const shopFromBody = req.method === "POST" ? (req.body as { shop?: string })?.shop : undefined;
     const shopFromQuery = typeof req.query.shop === "string" ? req.query.shop : undefined;
     const requestedShop = shopFromBody || shopFromQuery;
+
+    if (req.method === "POST" && requestedShop && !isDemoShop(requestedShop)) {
+      const tokenPayload = await verifySessionToken(req, requestedShop);
+      if (!tokenPayload) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+    }
 
     const db = await initDb();
     const shopsToRun = requestedShop

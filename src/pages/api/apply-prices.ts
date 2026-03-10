@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { PriceFilter, PriceAction, ApiResponse } from "@/types";
 import { applyMarginProtection, calculateNewPrice, generateId } from "@lib/price-utils";
+import { verifySessionToken } from "@/lib/verify-session-token";
 import {
   isDemoShop,
   getMockVariants,
@@ -97,6 +98,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           updates,
         },
       });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     const db = await initDb();

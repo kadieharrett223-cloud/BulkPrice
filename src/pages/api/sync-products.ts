@@ -3,6 +3,7 @@ import { initDb } from "@lib/db";
 import { ApiResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
 import { isDemoShop, getMockProducts, getMockVariants } from "@lib/mock-data";
+import { verifySessionToken } from "@/lib/verify-session-token";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   if (req.method !== "POST") {
@@ -28,6 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           message: "Demo sync complete – mock data loaded",
         },
       });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     const db = await initDb();

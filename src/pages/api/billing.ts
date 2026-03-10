@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { createRecurringCharge, checkSubscriptionStatus, BILLING_PLANS } from "@/lib/billing";
 import { sessionStorage } from "@/lib/session-storage";
 import { shopify } from "@/lib/shopify-config";
+import { verifySessionToken } from "@/lib/verify-session-token";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -9,6 +10,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!shop || typeof shop !== "string") {
       return res.status(400).json({ error: "Missing shop parameter" });
+    }
+
+    const tokenPayload = await verifySessionToken(req, shop);
+    if (!tokenPayload) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     // Get session
