@@ -5,6 +5,12 @@ import { generateId } from "@lib/price-utils";
 import { isDemoShop, getMockProducts, getMockVariants } from "@lib/mock-data";
 import { verifySessionToken } from "@/lib/verify-session-token";
 
+function extractShopifyId(gid: string | undefined): string {
+  if (!gid || typeof gid !== "string") return "";
+  const value = gid.split("/").pop() || "";
+  return value.trim();
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Method not allowed" });
@@ -48,6 +54,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     if (!session?.accessToken) {
       return res.status(401).json({ success: false, error: "Not authenticated. Please complete OAuth first." });
+    }
+
+    if (!session.shop || session.shop.toLowerCase() !== shop.toLowerCase()) {
+      return res.status(401).json({ success: false, error: "Session shop mismatch. Please re-authenticate." });
     }
 
     // Create GraphQL client
@@ -106,16 +116,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       `;
 
       const response: any = await client.query({ data: query });
-      const productsData = response.body.data.products;
+      const graphqlErrors = response?.body?.errors;
+      if (Array.isArray(graphqlErrors) && graphqlErrors.length > 0) {
+        const errorMessage = graphqlErrors.map((e: any) => e?.message).filter(Boolean).join("; ") || "Shopify GraphQL error";
+        return res.status(502).json({ success: false, error: errorMessage });
+      }
+
+      const productsData = response?.body?.data?.products;
+      if (!productsData || !Array.isArray(productsData.edges) || !productsData.pageInfo) {
+        return res.status(502).json({
+          success: false,
+          error: "Invalid Shopify response while syncing products",
+        });
+      }
 
       for (const edge of productsData.edges) {
         const product = edge.node;
+        if (!product?.id) continue;
         
         // Extract numeric ID from GraphQL GID
-        const productShopifyId = product.id.split("/").pop();
+        const productShopifyId = extractShopifyId(product.id);
+        if (!productShopifyId) continue;
         const productId = generateId("product");
 
-        const collections = product.collections.edges.map((e: any) => e.node.title).join(",");
+        const collections = Array.isArray(product.collections?.edges)
+          ? product.collections.edges.map((e: any) => e?.node?.title).filter(Boolean).join(",")
+          : "";
         const tags = Array.isArray(product.tags) ? product.tags.join(",") : product.tags || "";
 
         // Insert or update product
@@ -138,7 +164,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
             product.title,
             product.vendor || "",
             product.productType || "",
-            product.status.toLowerCase(),
+            typeof product.status === "string" ? product.status.toLowerCase() : "active",
             tags,
             collections,
             product.createdAt,
@@ -150,20 +176,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
         // Get the actual product ID from DB (in case of conflict/update)
         const dbProduct = await db.get("SELECT id FROM products WHERE shopifyId = ? AND shop = ?", [productShopifyId, shop]);
+        if (!dbProduct?.id) {
+          continue;
+        }
         const actualProductId = dbProduct.id;
 
         // Insert variants
-        for (const variantEdge of product.variants.edges) {
+        const variantEdges = Array.isArray(product.variants?.edges) ? product.variants.edges : [];
+        for (const variantEdge of variantEdges) {
           const variant = variantEdge.node;
-          const variantShopifyId = variant.id.split("/").pop();
+          if (!variant?.id) continue;
+
+          const variantShopifyId = extractShopifyId(variant.id);
+          if (!variantShopifyId) continue;
           const variantId = generateId("variant");
 
           const options = JSON.stringify(
-            variant.selectedOptions.reduce((acc: any, opt: any) => {
+            (Array.isArray(variant.selectedOptions) ? variant.selectedOptions : []).reduce((acc: any, opt: any) => {
               acc[opt.name] = opt.value;
               return acc;
             }, {})
           );
+
+          const parsedPrice = Number.parseFloat(variant.price);
+          if (!Number.isFinite(parsedPrice)) continue;
 
           await db.run(
             `INSERT INTO variants (id, shop, shopifyId, productId, title, price, compareAtPrice, sku, inventory, options, createdAt, updatedAt)
@@ -184,10 +220,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
               variantShopifyId,
               actualProductId,
               variant.title,
-              parseFloat(variant.price),
-              variant.compareAtPrice ? parseFloat(variant.compareAtPrice) : null,
+              parsedPrice,
+              variant.compareAtPrice ? Number.parseFloat(variant.compareAtPrice) : null,
               variant.sku || "",
-              variant.inventoryQuantity || 0,
+              Number.isFinite(Number(variant.inventoryQuantity)) ? Number(variant.inventoryQuantity) : 0,
               options,
               new Date().toISOString(),
               new Date().toISOString(),
@@ -198,7 +234,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         }
       }
 
-      hasNextPage = productsData.pageInfo.hasNextPage;
+      hasNextPage = Boolean(productsData.pageInfo.hasNextPage);
       if (hasNextPage && productsData.edges.length > 0) {
         cursor = productsData.edges[productsData.edges.length - 1].cursor;
       }
@@ -229,6 +265,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     });
   } catch (error: any) {
     console.error("Error syncing products:", error);
+
+    const message = String(error?.message || "");
+    if (message.includes("401") || message.includes("403") || message.toLowerCase().includes("access denied")) {
+      return res.status(401).json({
+        success: false,
+        error: "Shopify API authentication failed. Please re-install or re-authenticate the app.",
+      });
+    }
+
     return res.status(500).json({ 
       success: false, 
       error: error.message || "Failed to sync products from Shopify" 

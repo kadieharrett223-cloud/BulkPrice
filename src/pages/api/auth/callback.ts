@@ -20,7 +20,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Store session in database
-    await sessionStorage.storeSession(session);
+    const stored = await sessionStorage.storeSession(session);
+    if (!stored) {
+      console.error("Failed to persist Shopify session after OAuth callback", { shop: session.shop, sessionId: session.id });
+      return res.status(500).json({ error: "Failed to persist OAuth session" });
+    }
 
     // Redirect to app after successful authentication
     const host = typeof req.query.host === "string" ? req.query.host : "";
