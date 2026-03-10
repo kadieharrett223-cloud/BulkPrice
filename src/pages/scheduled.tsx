@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useRouter } from "next/router";
@@ -475,6 +475,23 @@ export default function ScheduledPage() {
 
   const calendarYear = calendarMonth.getFullYear();
   const calendarMonthIndex = calendarMonth.getMonth();
+  const calendarEventsByDay = useMemo(() => {
+    const events = new Map<number, ScheduledChange[]>();
+
+    for (const change of changes) {
+      if (!change.startTime) continue;
+      const date = new Date(change.startTime);
+      if (date.getFullYear() !== calendarYear || date.getMonth() !== calendarMonthIndex) continue;
+
+      const day = date.getDate();
+      const existing = events.get(day) || [];
+      existing.push(change);
+      events.set(day, existing);
+    }
+
+    return events;
+  }, [changes, calendarYear, calendarMonthIndex]);
+
   const mockPromoStart = new Date();
   mockPromoStart.setHours(0, 0, 0, 0);
   const mockPromoEnd = new Date(mockPromoStart);
@@ -613,6 +630,29 @@ export default function ScheduledPage() {
                 {cell && (
                   <>
                     <div className="text-xs font-semibold text-gray-700 mb-1">{cell.day}</div>
+                    {(() => {
+                      const dayEvents = calendarEventsByDay.get(cell.day) || [];
+                      if (dayEvents.length === 0) return null;
+
+                      return (
+                        <div className="space-y-1">
+                          {dayEvents.slice(0, 2).map((event) => (
+                            <div
+                              key={event.id}
+                              className="text-[10px] font-medium leading-tight text-indigo-700 bg-indigo-100 rounded-full px-2 py-1 truncate"
+                              title={`${event.name} • ${formatDate(event.startTime, "long")}`}
+                            >
+                              {event.name}
+                            </div>
+                          ))}
+                          {dayEvents.length > 2 && (
+                            <div className="text-[10px] leading-tight text-indigo-700 px-1">
+                              +{dayEvents.length - 2} more
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {cell.isMockPromo && (
                       <div className="text-[10px] font-medium leading-tight text-blue-700 bg-blue-100 rounded-full px-2 py-1 inline-block">
                         🌸 Spring Sale
