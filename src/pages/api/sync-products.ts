@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse } from "@/types";
-import { sessionStorage } from "@lib/session-storage";
-import { shopify } from "@lib/shopify-config";
 import { generateId } from "@lib/price-utils";
 import { isDemoShop, getMockProducts, getMockVariants } from "@lib/mock-data";
 
@@ -33,6 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     }
 
     const db = await initDb();
+    const [{ sessionStorage }, { shopify }] = await Promise.all([
+      import("@lib/session-storage"),
+      import("@lib/shopify-config"),
+    ]);
 
     // Get session with access token
     const sessionId = shopify.session.getOfflineId(shop);

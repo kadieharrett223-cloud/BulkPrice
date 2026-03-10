@@ -2,8 +2,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse, RollbackResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
-import { sessionStorage } from "@lib/session-storage";
-import { shopify } from "@lib/shopify-config";
 import {
   clearDemoRollbackSnapshot,
   getDemoRollbackSnapshot,
@@ -57,6 +55,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     }
 
     const db = await initDb();
+    const [{ sessionStorage }, { shopify }] = await Promise.all([
+      import("@lib/session-storage"),
+      import("@lib/shopify-config"),
+    ]);
 
     const sessionId = shopify.session.getOfflineId(shop);
     const session = await sessionStorage.loadSession(sessionId);
