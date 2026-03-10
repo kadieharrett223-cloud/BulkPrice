@@ -1,7 +1,6 @@
 import "@styles/globals.css";
 import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
-import toast from "react-hot-toast";
 import Navigation from "@components/Navigation";
 import DemoBanner from "@components/DemoBanner";
 import { ShopifyAppProvider } from "@components/ShopifyAppProvider";
@@ -9,11 +8,13 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { DEMO_SHOP } from "@lib/mock-data";
 import { resolveShop } from "@lib/use-shop";
+import axios from "axios";
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const isBulkPricingPage = router.pathname === "/bulk-pricing";
   const [isDemo, setIsDemo] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   // Save shop parameter to localStorage when available
   useEffect(() => {
@@ -38,6 +39,54 @@ export default function App({ Component, pageProps }: AppProps) {
     setIsDemo(false);
     sessionStorage.removeItem("shopify-install-warning-shown");
   }, [router.isReady, router.query.shop, router.asPath]);
+
+  useEffect(() => {
+    if (!router.isReady || typeof window === "undefined") {
+      return;
+    }
+
+    const effectiveShop = resolveShop();
+    if (!effectiveShop || effectiveShop === DEMO_SHOP) {
+      setCheckingAuth(false);
+      return;
+    }
+
+    const isAuthRoute = router.pathname.startsWith("/api/auth");
+    if (isAuthRoute) {
+      setCheckingAuth(false);
+      return;
+    }
+
+    const verifyAndAuthenticate = async () => {
+      try {
+        const response = await axios.get(`/api/auth/status?shop=${encodeURIComponent(effectiveShop)}`);
+        const authenticated = Boolean(response.data?.data?.authenticated);
+
+        if (!authenticated) {
+          window.location.href = `/api/auth?shop=${encodeURIComponent(effectiveShop)}`;
+          return;
+        }
+      } catch (error) {
+        console.error("Error verifying auth status:", error);
+        window.location.href = `/api/auth?shop=${encodeURIComponent(effectiveShop)}`;
+        return;
+      }
+
+      setCheckingAuth(false);
+    };
+
+    verifyAndAuthenticate();
+  }, [router.isReady, router.pathname]);
+
+  if (checkingAuth) {
+    return (
+      <ShopifyAppProvider>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-600">
+          Checking store authentication...
+        </div>
+      </ShopifyAppProvider>
+    );
+  }
 
   return (
     <ShopifyAppProvider>

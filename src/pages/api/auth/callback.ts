@@ -23,8 +23,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await sessionStorage.storeSession(session);
 
     // Redirect to app after successful authentication
-    const host = req.query.host as string;
-    const redirectUrl = `/?shop=${session.shop}&host=${host}`;
+    const host = typeof req.query.host === "string" ? req.query.host : "";
+    const query = new URLSearchParams({ shop: session.shop });
+    if (host) {
+      query.set("host", host);
+    }
+    const redirectUrl = `/?${query.toString()}`;
 
     res.redirect(redirectUrl);
   } catch (error) {
