@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { shopify } from "@/lib/shopify-config";
 
-const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY ?? "";
-
 function normalizeShop(input: string): string | null {
   const value = input.trim().toLowerCase();
   if (!value) return null;
@@ -40,88 +38,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Sanitize shop domain
     const sanitizedShop = normalizeShop(shop);
-    
+
     if (!sanitizedShop) {
       return res.status(400).json({ error: "Invalid shop domain" });
     }
 
-    const callbackPath = "/api/auth/callback";
+    // Detect embedded context BEFORE calling auth.begin().
+    // auth.begin() immediately sends a 302 via rawResponse.redirect(), so if we call it
+    // while inside an iframe the OAuth URL loads in the iframe — then accounts.shopify.com
+    // refuses framing and the whole flow breaks.
+    //
+    // Two-step strategy:
+    //   Step 1 (embedded): return a tiny HTML page that navigates window.top to
+    //           /api/auth?shop=SHOP  (no host param → treated as top-level on arrival)
+    //   Step 2 (top-level): call auth.begin() normally — it sends the 302 to Shopify OAuth.
+    const isEmbedded =
+      typeof req.query.host === "string" || req.query.embedded === "1";
 
-    // auth.begin() sets the state cookie on res and returns the Shopify OAuth URL.
-    // It does NOT send the HTTP body/redirect itself, so we can branch on embedded vs top.
-    // Pass a no-op fake response so auth.begin() only sets the Set-Cookie header;
-    // we will send the actual response ourselves below.
-    const authUrl = await shopify.auth.begin({
+    if (isEmbedded) {
+      // We are inside the Shopify Admin iframe. Do NOT call auth.begin() here.
+      // Just break out to the top window with a plain navigation. The top window
+      // will hit /api/auth again, this time without `host`, and auth.begin() will
+      // run normally in a full browser context where cookies work.
+      const topAuthUrl = `/api/auth?shop=${encodeURIComponent(sanitizedShop)}`;
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("X-Frame-Options", "ALLOWALL");
+      return res.send(`<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"><title>Redirecting…</title></head>
+  <body>
+    <script>
+      (function () {
+        var url = ${JSON.stringify(topAuthUrl)};
+        try {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = url;
+          } else {
+            window.location.href = url;
+          }
+        } catch (e) {
+          window.location.href = url;
+        }
+      })();
+    </script>
+    <p>Redirecting to Shopify authorization…</p>
+  </body>
+</html>`);
+    }
+
+    // Not embedded — top-level browser context. auth.begin() sends the 302 itself.
+    await shopify.auth.begin({
       shop: sanitizedShop,
-      callbackPath,
+      callbackPath: "/api/auth/callback",
       isOnline: false,
       rawRequest: req,
       rawResponse: res,
     });
-
-    // Detect embedded context: Shopify passes `host` (base64 shop origin) or `embedded=1`
-    const isEmbedded =
-      typeof req.query.host === "string" || req.query.embedded === "1";
-
-    if (!isEmbedded) {
-      // Normal top-level browser — redirect into Shopify OAuth.
-      // auth.begin() may have already called res.redirect() in some SDK versions;
-      // only call it ourselves if the response hasn't been sent yet.
-      if (!res.writableEnded) {
-        return res.redirect(authUrl);
-      }
-      return;
-    }
-
-    // Embedded (inside an iframe) — perform an App Bridge breakout so the OAuth
-    // redirect happens in the top-level window, not inside the iframe.
-    const encodedAuthUrl = authUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-    const host = typeof req.query.host === "string" ? req.query.host : "";
-
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("X-Frame-Options", "ALLOWALL"); // allow Shopify admin iframe
-    return res.send(`<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Redirecting…</title>
-    <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-  </head>
-  <body>
-    <p>Redirecting to Shopify authorization…</p>
-    <script>
-      (function () {
-        var authUrl = ${JSON.stringify(authUrl)};
-        var apiKey   = ${JSON.stringify(SHOPIFY_API_KEY)};
-        var host     = ${JSON.stringify(host)};
-
-        // If we are already in the top frame, go directly
-        if (window.top === window.self) {
-          window.location.assign(authUrl);
-          return;
-        }
-
-        // Try App Bridge redirect (works in Shopify Admin iframe)
-        try {
-          var AppBridge = window["app-bridge"] || window.shopify;
-          if (AppBridge && AppBridge.createApp) {
-            var app = AppBridge.createApp({ apiKey: apiKey, host: host });
-            var Redirect = AppBridge.actions && AppBridge.actions.Redirect;
-            if (Redirect) {
-              Redirect.create(app).dispatch(Redirect.Action.REMOTE, authUrl);
-              return;
-            }
-          }
-        } catch (e) {
-          // fall through
-        }
-
-        // Fallback: break out of iframe directly
-        window.top.location.href = authUrl;
-      })();
-    </script>
-  </body>
-</html>`);
   } catch (error: any) {
     console.error("Error starting OAuth:", {
       message: error?.message,
