@@ -75,8 +75,12 @@ export default function App({ Component, pageProps }: AppProps) {
       return;
     }
 
-    const effectiveShop = resolveShop();
-    if (!effectiveShop || effectiveShop === DEMO_SHOP) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopFromUrl = urlParams.get("shop") || (typeof router.query.shop === "string" ? router.query.shop : "");
+    const hostFromUrl = urlParams.get("host") || (typeof router.query.host === "string" ? router.query.host : "");
+    const isEmbeddedContext = Boolean(hostFromUrl);
+
+    if (!shopFromUrl || shopFromUrl === DEMO_SHOP) {
       setCheckingAuth(false);
       return;
     }
@@ -89,16 +93,27 @@ export default function App({ Component, pageProps }: AppProps) {
 
     const verifyAndAuthenticate = async () => {
       try {
-        const response = await axios.get(`/api/auth/status?shop=${encodeURIComponent(effectiveShop)}`);
+        const response = await axios.get(`/api/auth/status?shop=${encodeURIComponent(shopFromUrl)}`);
         const authenticated = Boolean(response.data?.data?.authenticated);
 
         if (!authenticated) {
-          window.location.href = `/api/auth?shop=${encodeURIComponent(effectiveShop)}`;
+          if (!isEmbeddedContext) {
+            window.location.href = `/api/auth?shop=${encodeURIComponent(shopFromUrl)}`;
+            return;
+          }
+
+          setCheckingAuth(false);
           return;
         }
       } catch (error) {
         console.error("Error verifying auth status:", error);
-        window.location.href = `/api/auth?shop=${encodeURIComponent(effectiveShop)}`;
+
+        if (axios.isAxiosError(error) && error.response?.status === 401 && !isEmbeddedContext) {
+          window.location.href = `/api/auth?shop=${encodeURIComponent(shopFromUrl)}`;
+          return;
+        }
+
+        setCheckingAuth(false);
         return;
       }
 

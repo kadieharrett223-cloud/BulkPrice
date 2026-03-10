@@ -16,10 +16,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sessions = await sessionStorage.findSessionsByShop(shop);
     const hasValidSession = sessions.some((session) => Boolean(session.accessToken));
 
+    if (!hasValidSession) {
+      return res.status(401).json({
+        success: false,
+        error: "Not authenticated",
+        data: {
+          authenticated: false,
+        },
+      });
+    }
+
     return res.status(200).json({
       success: true,
       data: {
-        authenticated: hasValidSession,
+        authenticated: true,
       },
     });
   } catch (error: any) {
