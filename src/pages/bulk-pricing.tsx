@@ -313,9 +313,9 @@ export default function BulkPricingPage() {
   };
 
   return (
-    <div className="h-full bg-gray-50">
-      <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_320px] gap-6 p-6">
-        <aside className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 h-fit">
+    <div className="w-full max-w-[1400px] mx-auto dashboard-wrapper">
+      <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr_320px] gap-6">
+        <aside className="section-card p-6 h-fit">
           <div className="mb-5 pb-4 border-b border-blue-100">
             <BrandLogo href="/bulk-pricing" />
           </div>
@@ -477,7 +477,7 @@ export default function BulkPricingPage() {
 
             <button
               onClick={applyFilters}
-              className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md border border-amber-300/60"
+              className="w-full mt-2 btn-primary"
             >
               Apply Filters
             </button>
@@ -495,7 +495,7 @@ export default function BulkPricingPage() {
           </div>
         </aside>
 
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <section className="section-card p-6">
           <div className="flex items-center gap-6 mb-6 overflow-x-auto pb-1">
             {STEPS.map((step, index) => (
               <div key={step.key} className="flex items-center gap-2 whitespace-nowrap">
@@ -517,8 +517,8 @@ export default function BulkPricingPage() {
           </div>
 
           <div className="mb-4 border-l-4 border-amber-400 pl-3">
-            <h1 className="text-2xl font-semibold text-gray-900">Bulk Pricing</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="section-title font-semibold text-gray-900">Bulk Pricing</h1>
+            <p className="body-compact text-gray-500">
               {isDemoMode
                 ? "Use the mock catalog to preview and simulate price changes safely."
                 : "Set a pricing rule after applying filters"}
@@ -581,7 +581,7 @@ export default function BulkPricingPage() {
             )}
           </div>
 
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+          <div className="overflow-x-auto border border-gray-200 rounded-xl bg-white/80 card">
             <table className="w-full mt-0">
               <thead className="text-xs text-gray-500 border-b bg-gray-50">
                 <tr>
@@ -660,7 +660,7 @@ export default function BulkPricingPage() {
           )}
 
           {lastRunSummary && !loading && (
-            <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="mt-4 section-card bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-start space-x-3">
                 <CheckCircle className="w-5 h-5 text-green-700 mt-0.5" />
                 <div>
@@ -670,7 +670,7 @@ export default function BulkPricingPage() {
                   </p>
                 </div>
               </div>
-              <Link href="/history" className="bg-green-700 text-white px-4 py-2 rounded-md hover:bg-green-800">
+              <Link href="/history" className="btn-primary">
                 View History
               </Link>
             </div>
@@ -683,7 +683,7 @@ export default function BulkPricingPage() {
                 generatePreview();
               }}
               disabled={loading || matchingCount === 0}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md disabled:opacity-50 border border-amber-300/60"
+              className="btn-primary disabled:opacity-50"
             >
               Preview Changes
             </button>
@@ -701,15 +701,15 @@ export default function BulkPricingPage() {
         </section>
 
         <aside className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
+          <div className="section-card p-6">
+            <h3 className="section-title font-semibold text-gray-900 mb-4">Summary</h3>
             <div className="text-sm text-gray-600 space-y-2">
               <p>{matchingCount} {isDemoMode ? "demo variants" : "products"} selected</p>
               <p>Estimated {matchingCount} operations</p>
               {isDemoMode && <p>Catalog source: mock Shopify demo data</p>}
             </div>
 
-            <div className="mt-4 bg-blue-50 border border-blue-100 p-3 rounded">
+            <div className="mt-4 action-card p-3">
               <p className="text-xs uppercase tracking-wide text-amber-600 font-semibold mb-1">Active rule</p>
               <p className="text-sm text-gray-700">
                 {summaryRuleText.includes("+") ? "Increase prices by" : "Active rule"}
@@ -719,7 +719,7 @@ export default function BulkPricingPage() {
           </div>
 
           {lastChangeGroupId && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="section-card bg-yellow-50 border border-yellow-200 rounded-xl p-4">
               <div className="flex items-start space-x-3 mb-3">
                 <AlertCircle className="w-5 h-5 text-yellow-700 mt-0.5" />
                 <div>
@@ -732,7 +732,7 @@ export default function BulkPricingPage() {
               <button
                 onClick={handleRollback}
                 disabled={loading}
-                className="w-full flex items-center justify-center space-x-2 bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 disabled:opacity-50"
+                className="w-full flex items-center justify-center space-x-2 bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 disabled:opacity-50 transition-all"
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>Undo Changes</span>
