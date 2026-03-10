@@ -3,7 +3,7 @@ import PublicResourceLayout from "@/components/PublicResourceLayout";
 const plans = [
   {
     name: "Starter",
-    price: "$1.99/month",
+    price: "$4.99/month",
     subtitle: "7-day free trial",
     features: [
       "5 bulk price changes per month",
@@ -15,7 +15,7 @@ const plans = [
   },
   {
     name: "Premium",
-    price: "$5.99/month",
+    price: "$7.99/month",
     subtitle: "7-day free trial",
     features: [
       "Unlimited bulk price changes",
