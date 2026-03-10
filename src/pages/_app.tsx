@@ -93,7 +93,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <div className="min-h-screen">
         {isDemo && <DemoBanner />}
         <Navigation />
-        <main className={isBulkPricingPage ? "" : "container mx-auto py-8"}>
+        <main className={isBulkPricingPage ? "" : "w-full max-w-[1400px] mx-auto px-6 py-8"}>
           <Component {...pageProps} />
         </main>
       </div>

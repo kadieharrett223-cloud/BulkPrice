@@ -157,7 +157,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto dashboard-wrapper space-y-10">
+    <div className="w-full max-w-[1400px] mx-auto dashboard-wrapper space-y-10">
       {/* Sync Banner */}
       {stats.totalProducts === 0 && !loading && (
         <div className="section-card bg-blue-50/85 border border-blue-200 rounded-2xl p-6">

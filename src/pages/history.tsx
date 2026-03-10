@@ -46,7 +46,7 @@ export default function HistoryPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto dashboard-wrapper space-y-8">
+    <div className="w-full max-w-[1400px] mx-auto dashboard-wrapper space-y-8">
       <div className="mb-8">
         <h1 className="section-title font-bold text-gray-900 mb-2">Activity History</h1>
         <p className="body-compact text-gray-600">

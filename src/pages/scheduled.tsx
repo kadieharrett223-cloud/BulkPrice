@@ -536,7 +536,7 @@ export default function ScheduledPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto dashboard-wrapper space-y-10">
+    <div className="w-full max-w-[1400px] mx-auto dashboard-wrapper space-y-10">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="section-title font-bold text-gray-900 mb-2">
