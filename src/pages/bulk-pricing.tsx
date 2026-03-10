@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { resolveShop } from "@lib/use-shop";
 import {
   AlertCircle,
   CheckCircle,
   ChevronRight,
+  FlaskConical,
   Loader,
   RotateCcw,
 } from "lucide-react";
@@ -12,6 +13,12 @@ import { PriceFilter, PriceAction, PricePreview } from "@/types";
 import axios from "axios";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
+import {
+  DEMO_SHOP,
+  getMockCollectionOptions,
+  getMockProductTypeOptions,
+  getMockVendorOptions,
+} from "@lib/mock-data";
 
 type Step = "filter" | "action" | "preview" | "confirm";
 
@@ -23,7 +30,7 @@ const STEPS: Array<{ key: Step; title: string }> = [
 ];
 
 export default function BulkPricingPage() {
-  const [currentStep, setCurrentStep] = useState<Step>("action");
+  const [currentStep, setCurrentStep] = useState<Step>("filter");
   const [filters, setFilters] = useState<PriceFilter>({});
   const [action, setAction] = useState<PriceAction>({ type: "percentage_increase", value: 10, targetField: "base" });
   const [preview, setPreview] = useState<PricePreview[]>([]);
@@ -47,8 +54,33 @@ export default function BulkPricingPage() {
   const [inventoryMin, setInventoryMin] = useState(0);
   const [inventoryMax, setInventoryMax] = useState(500);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  const demoCollections = useMemo(() => getMockCollectionOptions(), []);
+  const demoVendors = useMemo(() => getMockVendorOptions(), []);
+  const demoProductTypes = useMemo(() => getMockProductTypeOptions(), []);
 
   const activeStepIndex = STEPS.findIndex((item) => item.key === currentStep);
+
+  useEffect(() => {
+    const shop = resolveShop();
+    setIsDemoMode(shop === DEMO_SHOP);
+
+    const hydrateInitialCount = async () => {
+      try {
+        const response = await axios.post("/api/preview-count", { filters: {}, shop });
+        if (response.data.success) {
+          setMatchingCount(response.data.data.count || 0);
+        }
+      } catch {
+        // Ignore initial demo count failures; explicit actions still show errors.
+      }
+    };
+
+    if (shop) {
+      hydrateInitialCount();
+    }
+  }, []);
 
   const summaryRuleText = useMemo(() => {
     const value = action.value ?? 0;
@@ -100,7 +132,7 @@ export default function BulkPricingPage() {
       const response = await axios.post("/api/preview-count", { filters: nextFilters, shop });
       if (response.data.success) {
         setMatchingCount(response.data.data.count || 0);
-        toast.success("Filters applied");
+        toast.success(isDemoMode ? "Demo filters applied" : "Filters applied");
       }
       setCurrentStep("action");
     } catch {
@@ -267,6 +299,20 @@ export default function BulkPricingPage() {
 
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Products</h2>
 
+          {isDemoMode && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="flex items-start gap-2">
+                <FlaskConical className="mt-0.5 h-4 w-4 text-amber-700" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Demo catalog loaded</p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Choose a mock collection below or leave filters blank to preview changes across the full sample catalog.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4 text-sm">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Collections</label>
@@ -276,6 +322,24 @@ export default function BulkPricingPage() {
                 placeholder="Select collections"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
+              {isDemoMode && demoCollections.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {demoCollections.map((collection) => (
+                    <button
+                      key={collection}
+                      type="button"
+                      onClick={() => setCollectionInput(collection)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        collectionInput === collection
+                          ? "border-blue-600 bg-blue-600 text-white"
+                          : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      }`}
+                    >
+                      {collection}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -286,6 +350,24 @@ export default function BulkPricingPage() {
                 placeholder="Select vendors"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
+              {isDemoMode && demoVendors.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {demoVendors.map((vendor) => (
+                    <button
+                      key={vendor}
+                      type="button"
+                      onClick={() => setVendorInput(vendor)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        vendorInput === vendor
+                          ? "border-purple-600 bg-purple-600 text-white"
+                          : "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                      }`}
+                    >
+                      {vendor}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -296,6 +378,24 @@ export default function BulkPricingPage() {
                 placeholder="Select product types"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
+              {isDemoMode && demoProductTypes.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {demoProductTypes.map((productType) => (
+                    <button
+                      key={productType}
+                      type="button"
+                      onClick={() => setProductTypeInput(productType)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        productTypeInput === productType
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {productType}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -357,7 +457,9 @@ export default function BulkPricingPage() {
               Apply Filters
             </button>
 
-            <p className="text-sm text-gray-600 text-center">{matchingCount} matching products</p>
+            <p className="text-sm text-gray-600 text-center">
+              {matchingCount} matching {isDemoMode ? "demo variants" : "products"}
+            </p>
 
             <button
               onClick={resetFilters}
@@ -391,7 +493,11 @@ export default function BulkPricingPage() {
 
           <div className="mb-4 border-l-4 border-amber-400 pl-3">
             <h1 className="text-2xl font-semibold text-gray-900">Bulk Pricing</h1>
-            <p className="text-sm text-gray-500">Set a pricing rule after applying filters</p>
+            <p className="text-sm text-gray-500">
+              {isDemoMode
+                ? "Use the mock catalog to preview and simulate price changes safely."
+                : "Set a pricing rule after applying filters"}
+            </p>
           </div>
 
           <div className="space-y-4 mb-6">
@@ -482,7 +588,9 @@ export default function BulkPricingPage() {
                 {preview.length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-10 text-center text-sm text-gray-500">
-                      No preview data yet. Apply filters and click Preview Changes.
+                      {isDemoMode
+                        ? "No demo preview yet. Pick a mock collection or leave filters blank, then click Preview Changes."
+                        : "No preview data yet. Apply filters and click Preview Changes."}
                     </td>
                   </tr>
                 )}
@@ -494,7 +602,7 @@ export default function BulkPricingPage() {
             <div className="mt-4">
               <div className="flex items-center space-x-2 mb-2 text-sm text-gray-700">
                 <Loader className="w-4 h-4 animate-spin" />
-                <span>Updating products...</span>
+                <span>{isDemoMode ? "Simulating price update..." : "Updating products..."}</span>
               </div>
               <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
                 <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${runProgress}%` }} />
@@ -508,7 +616,9 @@ export default function BulkPricingPage() {
           {currentStep === "preview" && (
             <div className="mt-4 border border-yellow-200 bg-yellow-50 rounded-lg p-4">
               <p className="text-sm text-yellow-900 font-medium mb-2">
-                ⚠ You are about to update {preview.length} products. This action will modify live prices.
+                {isDemoMode
+                  ? `⚠ Demo mode: you are about to simulate updates for ${preview.length} product variants. No live Shopify prices will be changed.`
+                  : `⚠ You are about to update ${preview.length} products. This action will modify live prices.`}
               </p>
               <label className="flex items-start gap-2 text-sm text-yellow-800">
                 <input
@@ -517,7 +627,9 @@ export default function BulkPricingPage() {
                   onChange={(event) => setAcknowledged(event.target.checked)}
                   className="mt-0.5"
                 />
-                I understand these changes will update store prices.
+                {isDemoMode
+                  ? "I understand this is a demo simulation and the mock catalog will pretend the update succeeded."
+                  : "I understand these changes will update store prices."}
               </label>
             </div>
           )}
@@ -529,7 +641,7 @@ export default function BulkPricingPage() {
                 <div>
                   <p className="font-semibold text-green-900">Bulk update completed</p>
                   <p className="text-sm text-green-800">
-                    Products updated: {lastRunSummary.affectedCount} • Failed: {lastRunSummary.failedCount} • Duration: {(lastRunSummary.durationMs / 1000).toFixed(1)}s
+                    {isDemoMode ? "Demo variants updated" : "Products updated"}: {lastRunSummary.affectedCount} • Failed: {lastRunSummary.failedCount} • Duration: {(lastRunSummary.durationMs / 1000).toFixed(1)}s
                   </p>
                 </div>
               </div>
@@ -558,7 +670,7 @@ export default function BulkPricingPage() {
               disabled={loading || preview.length === 0 || !acknowledged}
               className="border border-gray-200 bg-white text-gray-800 px-6 py-2 rounded-md disabled:opacity-50"
             >
-              Review & Apply
+              {isDemoMode ? "Simulate Update" : "Review & Apply"}
             </button>
           </div>
         </section>
@@ -567,8 +679,9 @@ export default function BulkPricingPage() {
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
             <div className="text-sm text-gray-600 space-y-2">
-              <p>{matchingCount} products selected</p>
+              <p>{matchingCount} {isDemoMode ? "demo variants" : "products"} selected</p>
               <p>Estimated {matchingCount} operations</p>
+              {isDemoMode && <p>Catalog source: mock Shopify demo data</p>}
             </div>
 
             <div className="mt-4 bg-blue-50 border border-blue-100 p-3 rounded">
@@ -586,7 +699,9 @@ export default function BulkPricingPage() {
                 <AlertCircle className="w-5 h-5 text-yellow-700 mt-0.5" />
                 <div>
                   <p className="font-semibold text-yellow-900">Rollback available</p>
-                  <p className="text-sm text-yellow-700">Undo the latest bulk price update.</p>
+                  <p className="text-sm text-yellow-700">
+                    {isDemoMode ? "Undo the latest simulated demo update." : "Undo the latest bulk price update."}
+                  </p>
                 </div>
               </div>
               <button

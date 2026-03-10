@@ -4,6 +4,13 @@ import { ApiResponse, RollbackResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
 import { sessionStorage } from "@lib/session-storage";
 import { shopify } from "@lib/shopify-config";
+import {
+  clearDemoRollbackSnapshot,
+  getDemoRollbackSnapshot,
+  isDemoShop,
+  restoreMockVariants,
+  addDemoLogEntry,
+} from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<RollbackResponse>>) {
   if (req.method !== "POST") {
@@ -11,12 +18,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   try {
-    const db = await initDb();
     const { changeGroupId, shop } = req.body;
 
     if (!changeGroupId || !shop) {
       return res.status(400).json({ success: false, error: "changeGroupId and shop are required" });
     }
+
+    if (isDemoShop(shop)) {
+      const snapshot = getDemoRollbackSnapshot(changeGroupId);
+
+      if (!snapshot) {
+        return res.status(404).json({ success: false, error: "No rollback data found for this demo change" });
+      }
+
+      restoreMockVariants(snapshot);
+      clearDemoRollbackSnapshot(changeGroupId);
+      addDemoLogEntry({
+        id: `demo-log-${Date.now()}`,
+        shop,
+        action: "Rolled back price changes",
+        affectedCount: snapshot.length,
+        changeGroupId,
+        timestamp: new Date().toISOString(),
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          success: true,
+          affectedCount: snapshot.length,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    const db = await initDb();
 
     const sessionId = shopify.session.getOfflineId(shop);
     const session = await sessionStorage.loadSession(sessionId);

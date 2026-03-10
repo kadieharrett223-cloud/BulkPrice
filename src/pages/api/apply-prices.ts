@@ -10,6 +10,7 @@ import {
   getMockProducts,
   applyMockPriceUpdate,
   addDemoLogEntry,
+  saveDemoRollbackSnapshot,
 } from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
@@ -44,6 +45,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         return true;
       });
 
+      const demoChangeGroupId = changeGroupId || `demo-group-${Date.now()}`;
+      saveDemoRollbackSnapshot(
+        demoChangeGroupId,
+        matchedVariants.map((variant) => ({
+          variantId: variant.id,
+          shopifyId: variant.shopifyId,
+          price: variant.price,
+          compareAtPrice: variant.compareAtPrice,
+        }))
+      );
+
       const updates: any[] = [];
       for (const v of matchedVariants) {
         const baseCalculated = calculateNewPrice(v.price, action);
@@ -60,7 +72,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         updates.push({ variantId: v.id, oldPrice: v.price, newPrice });
       }
 
-      const demoChangeGroupId = changeGroupId || `demo-group-${Date.now()}`;
       addDemoLogEntry({
         id: `demo-log-${Date.now()}`,
         shop,

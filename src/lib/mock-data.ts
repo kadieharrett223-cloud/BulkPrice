@@ -216,6 +216,42 @@ export function getMockProducts(): MockProduct[] {
   }));
 }
 
+function getDistinctMockValues(field: "collections" | "vendor" | "productType"): string[] {
+  const products = getMockProducts();
+
+  if (field === "collections") {
+    return Array.from(
+      new Set(
+        products
+          .flatMap((product) => product.collections.split(","))
+          .map((value) => value.trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }
+
+  return Array.from(
+    new Set(
+      products
+        .map((product) => product[field])
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value))
+    )
+  ).sort((a, b) => a.localeCompare(b));
+}
+
+export function getMockCollectionOptions(): string[] {
+  return getDistinctMockValues("collections");
+}
+
+export function getMockVendorOptions(): string[] {
+  return getDistinctMockValues("vendor");
+}
+
+export function getMockProductTypeOptions(): string[] {
+  return getDistinctMockValues("productType");
+}
+
 /** Apply a price update to the in-memory mock variants (returns updated count) */
 export function applyMockPriceUpdate(
   variantId: string,
@@ -317,4 +353,37 @@ export function addDemoLogEntry(entry: DemoLogEntry): void {
 
 export function getDemoLog(limit = 50, offset = 0): DemoLogEntry[] {
   return _demoLog.slice(offset, offset + limit);
+}
+
+interface DemoRollbackSnapshotItem {
+  variantId: string;
+  shopifyId: string;
+  price: number;
+  compareAtPrice: number | null;
+}
+
+const _demoRollbackSnapshots = new Map<string, DemoRollbackSnapshotItem[]>();
+
+export function saveDemoRollbackSnapshot(
+  changeGroupId: string,
+  snapshot: DemoRollbackSnapshotItem[]
+): void {
+  _demoRollbackSnapshots.set(changeGroupId, snapshot.map((item) => ({ ...item })));
+}
+
+export function getDemoRollbackSnapshot(changeGroupId: string): DemoRollbackSnapshotItem[] | undefined {
+  const snapshot = _demoRollbackSnapshots.get(changeGroupId);
+  return snapshot?.map((item) => ({ ...item }));
+}
+
+export function clearDemoRollbackSnapshot(changeGroupId: string): void {
+  _demoRollbackSnapshots.delete(changeGroupId);
+}
+
+export function restoreMockVariants(
+  snapshot: DemoRollbackSnapshotItem[]
+): void {
+  for (const item of snapshot) {
+    applyMockPriceUpdate(item.variantId, item.price, item.compareAtPrice);
+  }
 }
