@@ -46,15 +46,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       });
 
       const demoChangeGroupId = changeGroupId || `demo-group-${Date.now()}`;
-      saveDemoRollbackSnapshot(
-        demoChangeGroupId,
-        matchedVariants.map((variant) => ({
-          variantId: variant.id,
-          shopifyId: variant.shopifyId,
-          price: variant.price,
-          compareAtPrice: variant.compareAtPrice,
-        }))
-      );
+      try {
+        saveDemoRollbackSnapshot(
+          demoChangeGroupId,
+          matchedVariants.map((variant) => ({
+            variantId: variant.id,
+            shopifyId: variant.shopifyId,
+            price: variant.price,
+            compareAtPrice: variant.compareAtPrice ?? null,
+          }))
+        );
+      } catch (snapshotError) {
+        console.error("Unable to store demo rollback snapshot:", snapshotError);
+      }
 
       const updates: any[] = [];
       for (const v of matchedVariants) {
@@ -72,14 +76,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         updates.push({ variantId: v.id, oldPrice: v.price, newPrice });
       }
 
-      addDemoLogEntry({
-        id: `demo-log-${Date.now()}`,
-        shop,
-        action: `Applied ${action.type} to variants`,
-        affectedCount: matchedVariants.length,
-        changeGroupId: demoChangeGroupId,
-        timestamp: new Date().toISOString(),
-      });
+      try {
+        addDemoLogEntry({
+          id: `demo-log-${Date.now()}`,
+          shop,
+          action: `Applied ${action.type} to variants`,
+          affectedCount: matchedVariants.length,
+          changeGroupId: demoChangeGroupId,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (logError) {
+        console.error("Unable to append demo activity log:", logError);
+      }
 
       return res.status(200).json({
         success: true,

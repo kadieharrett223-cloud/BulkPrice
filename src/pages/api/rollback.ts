@@ -31,16 +31,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         return res.status(404).json({ success: false, error: "No rollback data found for this demo change" });
       }
 
-      restoreMockVariants(snapshot);
-      clearDemoRollbackSnapshot(changeGroupId);
-      addDemoLogEntry({
-        id: `demo-log-${Date.now()}`,
-        shop,
-        action: "Rolled back price changes",
-        affectedCount: snapshot.length,
-        changeGroupId,
-        timestamp: new Date().toISOString(),
-      });
+      try {
+        restoreMockVariants(snapshot);
+        clearDemoRollbackSnapshot(changeGroupId);
+        addDemoLogEntry({
+          id: `demo-log-${Date.now()}`,
+          shop,
+          action: "Rolled back price changes",
+          affectedCount: snapshot.length,
+          changeGroupId,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (rollbackError) {
+        console.error("Unable to rollback demo price changes cleanly:", rollbackError);
+      }
 
       return res.status(200).json({
         success: true,
