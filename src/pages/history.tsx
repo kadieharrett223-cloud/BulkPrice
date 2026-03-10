@@ -3,6 +3,7 @@ import axios from "axios";
 import { ActivityLog } from "@/types";
 import { formatDate } from "@lib/price-utils";
 import { Search, Calendar } from "lucide-react";
+import { resolveShop } from "@lib/use-shop";
 
 export default function HistoryPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -18,8 +19,7 @@ export default function HistoryPage() {
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+      const shop = resolveShop();
 
       if (!shop) {
         setLogs([]);

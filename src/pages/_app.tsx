@@ -3,13 +3,17 @@ import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
 import toast from "react-hot-toast";
 import Navigation from "@components/Navigation";
+import DemoBanner from "@components/DemoBanner";
 import { ShopifyAppProvider } from "@components/ShopifyAppProvider";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { DEMO_SHOP } from "@lib/mock-data";
+import { resolveShop } from "@lib/use-shop";
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const isBulkPricingPage = router.pathname === "/bulk-pricing";
+  const [isDemo, setIsDemo] = useState(false);
 
   // Save shop parameter to localStorage when available
   useEffect(() => {
@@ -19,30 +23,26 @@ export default function App({ Component, pageProps }: AppProps) {
     }
   }, [router.query.shop]);
 
-  // Show a clear notification when app is opened without Shopify install context
+  // Detect demo mode and seed the fallback demo shop whenever there is no real shop.
   useEffect(() => {
-    if (!router.isReady || typeof window === "undefined") {
-      return;
-    }
+    if (!router.isReady || typeof window === "undefined") return;
 
-    const urlShop = typeof router.query.shop === "string" ? router.query.shop : "";
-    const storedShop = localStorage.getItem("shopifyShop") || "";
-    const hasShopContext = Boolean(urlShop || storedShop);
-
-    if (hasShopContext) {
+    const effectiveShop = resolveShop();
+    if (effectiveShop === DEMO_SHOP) {
+      localStorage.setItem("shopifyShop", DEMO_SHOP);
+      setIsDemo(true);
       sessionStorage.removeItem("shopify-install-warning-shown");
       return;
     }
 
-    if (!sessionStorage.getItem("shopify-install-warning-shown")) {
-      toast.error("Install on Shopify to start");
-      sessionStorage.setItem("shopify-install-warning-shown", "1");
-    }
-  }, [router.isReady, router.query.shop]);
+    setIsDemo(false);
+    sessionStorage.removeItem("shopify-install-warning-shown");
+  }, [router.isReady, router.query.shop, router.asPath]);
 
   return (
     <ShopifyAppProvider>
       <div className="min-h-screen bg-gray-50">
+        {isDemo && <DemoBanner />}
         <Navigation />
         <main className={isBulkPricingPage ? "" : "container mx-auto py-8"}>
           <Component {...pageProps} />

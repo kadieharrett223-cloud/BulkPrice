@@ -2,9 +2,38 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse } from "@/types";
 import { generateId } from "@lib/price-utils";
+import { DEMO_SHOP, isDemoShop, MOCK_SCHEDULED_CHANGES } from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   try {
+    // ── Demo mode ──────────────────────────────────────────────────────────────
+    const shop = ((req.query.shop || req.body?.shop) as string | undefined) || DEMO_SHOP;
+    if (isDemoShop(shop)) {
+      if (req.method === "GET") {
+        const { status = "scheduled" } = req.query;
+        const filtered = status === "all"
+          ? MOCK_SCHEDULED_CHANGES
+          : MOCK_SCHEDULED_CHANGES.filter((c) => c.status === status);
+        const result = filtered.map((c) => ({
+          ...c,
+          filters: JSON.parse(c.filters),
+          action: JSON.parse(c.action),
+        }));
+        return res.status(200).json({ success: true, data: result });
+      }
+      if (req.method === "POST") {
+        return res.status(200).json({
+          success: true,
+          data: { id: `mock-sched-${Date.now()}`, ...req.body, status: "scheduled" },
+        });
+      }
+      if (req.method === "PUT" || req.method === "DELETE") {
+        return res.status(200).json({ success: true, data: {} });
+      }
+      return res.status(405).json({ success: false, error: "Method not allowed" });
+    }
+
+    // Real Shopify store routing
     if (req.method === "GET") {
       return await handleGet(req, res);
     } else if (req.method === "POST") {

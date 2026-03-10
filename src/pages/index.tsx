@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { resolveShop } from "@lib/use-shop";
 import {
   Download,
   Clock,
@@ -44,8 +45,7 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+      const shop = resolveShop();
 
       if (!shop) {
         setLoading(false);
@@ -111,9 +111,7 @@ export default function Dashboard() {
     const toastId = toast.loading("Syncing products from Shopify...");
 
     try {
-      // Get shop from URL or localStorage
-      const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+      const shop = resolveShop();
 
       if (!shop) {
         toast.error("Shop not found. Please complete OAuth first.", { id: toastId });

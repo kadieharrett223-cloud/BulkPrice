@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { PriceAction, PriceFilter, ScheduledChange } from "@/types";
 import { Clock, Plus, Trash2, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Lock, Pencil } from "lucide-react";
 import { calculateNewPrice, formatDate } from "@lib/price-utils";
+import { resolveShop } from "@lib/use-shop";
 
 export default function ScheduledPage() {
   const [changes, setChanges] = useState<ScheduledChange[]>([]);
@@ -66,12 +67,7 @@ export default function ScheduledPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const getCurrentShop = () => {
-    const query = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const urlShop = query?.get("shop") || "";
-    const storedShop = typeof window !== "undefined" ? localStorage.getItem("shopifyShop") || "" : "";
-    return urlShop || storedShop;
-  };
+  const getCurrentShop = () => resolveShop();
 
   const fetchPlanUsage = async () => {
     try {

@@ -4,6 +4,13 @@ import { PriceFilter, PriceAction, ApiResponse } from "@/types";
 import { applyMarginProtection, calculateNewPrice, generateId } from "@lib/price-utils";
 import { sessionStorage } from "@lib/session-storage";
 import { shopify } from "@lib/shopify-config";
+import {
+  isDemoShop,
+  getMockVariants,
+  getMockProducts,
+  applyMockPriceUpdate,
+  addDemoLogEntry,
+} from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   if (req.method !== "POST") {
@@ -11,13 +18,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   try {
-    const db = await initDb();
     const startedAt = Date.now();
     const { filters, action, changeGroupId, shop }: { filters: PriceFilter; action: PriceAction; changeGroupId: string; shop: string } = req.body;
 
     if (!shop) {
       return res.status(400).json({ success: false, error: "Shop parameter required" });
     }
+
+    // ── Demo mode: apply prices to in-memory mock data ────────────────────────
+    if (isDemoShop(shop)) {
+      const allVariants = getMockVariants();
+      const allProducts = getMockProducts();
+      const targetField = action.targetField || "base";
+
+      const matchedVariants = allVariants.filter((v) => {
+        const product = allProducts.find((p) => p.id === v.productId);
+        if (!product) return false;
+        if (filters.collections?.length && !filters.collections.some((c) => product.collections.includes(c))) return false;
+        if (filters.vendors?.length && !filters.vendors.includes(product.vendor)) return false;
+        if (filters.productTypes?.length && !filters.productTypes.includes(product.productType)) return false;
+        if (filters.statuses?.length && !filters.statuses.includes(product.status)) return false;
+        if (filters.tags?.length && !filters.tags.some((t) => product.tags.includes(t))) return false;
+        if (filters.priceRange && (v.price < filters.priceRange.min || v.price > filters.priceRange.max)) return false;
+        if (filters.inventoryRange && (v.inventory < filters.inventoryRange.min || v.inventory > filters.inventoryRange.max)) return false;
+        return true;
+      });
+
+      const updates: any[] = [];
+      for (const v of matchedVariants) {
+        const baseCalculated = calculateNewPrice(v.price, action);
+        const { price: protectedBasePrice } = applyMarginProtection(baseCalculated, v.price, action, v.cost ?? undefined);
+        const compareSource = v.compareAtPrice ?? v.price;
+        const compareCalculated = calculateNewPrice(compareSource, action);
+        const newPrice = targetField === "compare_at" ? v.price : protectedBasePrice;
+        const newCompareAtPrice =
+          targetField === "base"
+            ? v.compareAtPrice
+            : Math.round(compareCalculated * 100) / 100;
+
+        applyMockPriceUpdate(v.id, newPrice, newCompareAtPrice);
+        updates.push({ variantId: v.id, oldPrice: v.price, newPrice });
+      }
+
+      const demoChangeGroupId = changeGroupId || `demo-group-${Date.now()}`;
+      addDemoLogEntry({
+        id: `demo-log-${Date.now()}`,
+        shop,
+        action: `Applied ${action.type} to variants`,
+        affectedCount: matchedVariants.length,
+        changeGroupId: demoChangeGroupId,
+        timestamp: new Date().toISOString(),
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          changeGroupId: demoChangeGroupId,
+          affectedCount: matchedVariants.length,
+          failedCount: 0,
+          durationMs: Date.now() - startedAt,
+          updates,
+        },
+      });
+    }
+
+    const db = await initDb();
 
     // Get OAuth session
     const sessionId = shopify.session.getOfflineId(shop);

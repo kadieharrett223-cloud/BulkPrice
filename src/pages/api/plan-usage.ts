@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
+import { DEMO_SHOP, isDemoShop } from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -7,10 +8,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { shop } = req.query;
+    const shop = typeof req.query.shop === "string" ? req.query.shop : DEMO_SHOP;
 
-    if (!shop || typeof shop !== "string") {
-      return res.status(400).json({ success: false, error: "Missing shop parameter" });
+    // ── Demo mode: show premium plan ──────────────────────────────────────────
+    if (isDemoShop(shop)) {
+      return res.status(200).json({
+        success: true,
+        data: { plan: "premium", used: null, limit: null, remaining: null, label: "Demo mode – unlimited changes" },
+      });
     }
 
     const db = await initDb();

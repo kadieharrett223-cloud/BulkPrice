@@ -4,6 +4,7 @@ import { ApiResponse } from "@/types";
 import { sessionStorage } from "@lib/session-storage";
 import { shopify } from "@lib/shopify-config";
 import { generateId } from "@lib/price-utils";
+import { isDemoShop, getMockProducts, getMockVariants } from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   if (req.method !== "POST") {
@@ -11,12 +12,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   try {
-    const db = await initDb();
     const { shop } = req.body;
 
     if (!shop) {
       return res.status(400).json({ success: false, error: "Shop parameter required" });
     }
+
+    // ── Demo mode: pretend sync succeeded with mock counts ─────────────────────
+    if (isDemoShop(shop)) {
+      const products = getMockProducts();
+      const variants = getMockVariants();
+      return res.status(200).json({
+        success: true,
+        data: {
+          productsSync: products.length,
+          variantsSync: variants.length,
+          message: "Demo sync complete – mock data loaded",
+        },
+      });
+    }
+
+    const db = await initDb();
 
     // Get session with access token
     const sessionId = shopify.session.getOfflineId(shop);

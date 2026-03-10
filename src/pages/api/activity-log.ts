@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { ApiResponse, ActivityLog } from "@/types";
+import { DEMO_SHOP, isDemoShop, getDemoLog } from "@lib/mock-data";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<ActivityLog[]>>) {
   if (req.method !== "GET") {
@@ -8,12 +9,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   try {
-    const db = await initDb();
-    const { limit = 50, offset = 0, shop } = req.query;
+    const { limit = 50, offset = 0 } = req.query;
+    const shop = typeof req.query.shop === "string" ? req.query.shop : DEMO_SHOP;
 
-    if (!shop || typeof shop !== "string") {
-      return res.status(400).json({ success: false, error: "Shop parameter required" });
+    // ── Demo mode ──────────────────────────────────────────────────────────────
+    if (isDemoShop(shop)) {
+      const logs = getDemoLog(parseInt(limit as string), parseInt(offset as string));
+      return res.status(200).json({ success: true, data: logs as any });
     }
+
+    const db = await initDb();
 
     const logs = await db.all(
       `

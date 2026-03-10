@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { resolveShop } from "@lib/use-shop";
 import {
   AlertCircle,
   CheckCircle,
@@ -93,8 +94,7 @@ export default function BulkPricingPage() {
 
     setFilters(nextFilters);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+    const shop = resolveShop();
 
     try {
       const response = await axios.post("/api/preview-count", { filters: nextFilters, shop });
@@ -120,8 +120,7 @@ export default function BulkPricingPage() {
     setInventoryMax(500);
     setFilters({});
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+    const shop = resolveShop();
 
     try {
       const response = await axios.post("/api/preview-count", { filters: {}, shop });
@@ -136,8 +135,7 @@ export default function BulkPricingPage() {
   const generatePreview = async () => {
     setLoading(true);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+    const shop = resolveShop();
 
     try {
       const response = await axios.post("/api/preview-prices", {
@@ -180,8 +178,7 @@ export default function BulkPricingPage() {
 
     try {
       // Get shop from URL or localStorage
-      const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+      const shop = resolveShop();
 
       const response = await axios.post("/api/apply-prices", {
         filters,
@@ -242,8 +239,7 @@ export default function BulkPricingPage() {
     setLoading(true);
 
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get("shop") || localStorage.getItem("shopifyShop") || "";
+      const shop = resolveShop();
 
       const response = await axios.post("/api/rollback", {
         changeGroupId: lastChangeGroupId,

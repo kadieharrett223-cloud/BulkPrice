@@ -5,6 +5,8 @@ import BrandLogo from "@/components/BrandLogo";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
+import { resolveShop } from "@lib/use-shop";
+import { DEMO_SHOP } from "@lib/mock-data";
 
 export default function Navigation() {
   const router = useRouter();
@@ -29,11 +31,9 @@ export default function Navigation() {
     );
 
     try {
-      const urlShop = typeof router.query.shop === "string" ? router.query.shop : "";
-      const storedShop = typeof window !== "undefined" ? localStorage.getItem("shopifyShop") || "" : "";
-      const shop = urlShop || storedShop;
+      const shop = resolveShop();
 
-      if (!shop) {
+      if (!shop || shop === DEMO_SHOP) {
         toast.error("Missing shop context. Re-open app from Shopify Admin.", { id: toastId });
         return;
       }
@@ -61,13 +61,11 @@ export default function Navigation() {
     const fetchPlanUsage = async () => {
       if (!router.isReady) return;
 
-      const urlShop = typeof router.query.shop === "string" ? router.query.shop : "";
-      const storedShop = typeof window !== "undefined" ? localStorage.getItem("shopifyShop") || "" : "";
-      const shop = urlShop || storedShop;
+      const shop = resolveShop();
 
-      if (!shop) {
-        setUsageLabel("Install on Shopify to start");
-        setUsagePlan(null);
+      if (shop === DEMO_SHOP) {
+        setUsageLabel("Demo mode – unlimited changes");
+        setUsagePlan("premium");
         return;
       }
 
