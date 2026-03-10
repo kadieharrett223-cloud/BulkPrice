@@ -2,7 +2,7 @@
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
 
 name = "pricepilotpro"
-client_id = "YOUR_CLIENT_ID_FROM_SHOPIFY_PARTNERS"
+client_id = "ba170c28db4ad8d6496eb2bd0d6a48ec"
 application_url = "https://bulk-price-kappa.vercel.app"
 embedded = true
 
