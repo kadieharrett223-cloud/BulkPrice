@@ -157,26 +157,26 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto dashboard-wrapper space-y-10">
       {/* Sync Banner */}
       {stats.totalProducts === 0 && !loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="section-card bg-blue-50/85 border border-blue-200 rounded-2xl p-6">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
+            <div className="icon-pill">
               <RefreshCw className="w-6 h-6 text-blue-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-blue-900 mb-1">
+              <h3 className="section-title font-semibold text-blue-900 mb-1">
                 Sync Your Products First
               </h3>
-              <p className="text-sm text-blue-700 mb-4">
+              <p className="body-compact text-blue-700 mb-4">
                 Before you can update prices, you need to sync your products from Shopify. 
                 This will import all your products and variants into PricePilot Pro.
               </p>
               <button
                 onClick={handleSyncProducts}
                 disabled={syncing}
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-md font-medium transition"
+                className="btn-primary inline-flex items-center gap-2 disabled:opacity-60"
               >
                 {syncing ? (
                   <>
@@ -196,15 +196,15 @@ export default function Dashboard() {
       )}
 
       {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="stat-card section-card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
+            <div className="icon-pill">
               <Package className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Products in Catalog</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalProducts.toLocaleString()}</p>
+              <p className="card-title text-gray-500">Products in Catalog</p>
+              <p className="metric-number font-bold text-gray-900">{stats.totalProducts.toLocaleString()}</p>
             </div>
           </div>
           {stats.totalProducts > 0 && (
@@ -219,38 +219,38 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <div className="stat-card section-card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
+            <div className="icon-pill">
               <Package className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Products Updated</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.productsUpdated.toLocaleString()}</p>
+              <p className="card-title text-gray-500">Products Updated</p>
+              <p className="metric-number font-bold text-gray-900">{stats.productsUpdated.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <div className="stat-card section-card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
+            <div className="icon-pill">
               <Zap className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Active Campaigns</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeCampaigns}</p>
+              <p className="card-title text-gray-500">Active Campaigns</p>
+              <p className="metric-number font-bold text-gray-900">{stats.activeCampaigns}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <div className="stat-card section-card">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-50 rounded-lg">
+            <div className="icon-pill">
               <Calendar className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Scheduled Changes</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="card-title text-gray-500">Scheduled Changes</p>
+              <p className="metric-number font-bold text-gray-900">
                 {stats.scheduledChanges} upcoming
               </p>
             </div>
@@ -259,53 +259,59 @@ export default function Dashboard() {
       </div>
 
       {/* Primary Actions */}
-      <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Primary Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-6">
+        <h2 className="section-title font-semibold text-gray-900 mb-6">Primary Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link
             href="/bulk-pricing"
-            className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md hover:border-blue-300 transition group"
+            className="action-card section-card group"
           >
             <div className="flex items-center gap-2 mb-2 text-gray-900">
-              <DollarSign className="w-5 h-5 text-blue-600" />
-              <h3 className="text-lg font-semibold">Start Bulk Price Update</h3>
+              <div className="icon-pill">
+                <DollarSign className="w-5 h-5 text-blue-600" />
+              </div>
+              <h3 className="section-title font-semibold">Start Bulk Price Update</h3>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="body-compact text-gray-500 mt-1">
               Change prices across products instantly
             </p>
-            <div className="inline-block mt-4 bg-blue-600 group-hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+            <div className="btn-primary inline-block mt-4 text-sm">
               Start
             </div>
           </Link>
 
           <Link
             href="/scheduled?new=1"
-            className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md hover:border-blue-300 transition group"
+            className="action-card section-card group"
           >
             <div className="flex items-center gap-2 mb-2 text-gray-900">
-              <Clock className="w-5 h-5 text-blue-600" />
-              <h3 className="text-lg font-semibold">Schedule Flash Sale</h3>
+              <div className="icon-pill">
+                <Clock className="w-5 h-5 text-blue-600" />
+              </div>
+              <h3 className="section-title font-semibold">Schedule Flash Sale</h3>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="body-compact text-gray-500 mt-1">
               Run timed sales with auto-restore
             </p>
-            <div className="inline-block mt-4 bg-blue-600 group-hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+            <div className="btn-primary inline-block mt-4 text-sm">
               Schedule
             </div>
           </Link>
 
           <Link
             href="/bulk-pricing"
-            className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md hover:border-blue-300 transition group"
+            className="action-card section-card group"
           >
             <div className="flex items-center gap-2 mb-2 text-gray-900">
-              <Download className="w-5 h-5 text-blue-600" />
-              <h3 className="text-lg font-semibold">Import / Export CSV</h3>
+              <div className="icon-pill">
+                <Download className="w-5 h-5 text-blue-600" />
+              </div>
+              <h3 className="section-title font-semibold">Import / Export CSV</h3>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="body-compact text-gray-500 mt-1">
               Upload or download pricing data
             </p>
-            <div className="inline-block mt-4 bg-blue-600 group-hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+            <div className="btn-primary inline-block mt-4 text-sm">
               Open CSV Tools
             </div>
           </Link>
@@ -314,9 +320,9 @@ export default function Dashboard() {
 
       {/* Upcoming Campaigns */}
       {upcomingCampaigns.length > 0 && (
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <section className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Upcoming Price Campaigns</h2>
+            <h2 className="section-title font-semibold text-gray-900">Upcoming Price Campaigns</h2>
             <Link
               href="/scheduled?new=1"
               className="text-sm text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
@@ -325,11 +331,11 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {upcomingCampaigns.map((campaign) => (
-              <div key={campaign.id} className="border border-gray-200 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-2">{campaign.name}</h3>
-                <div className="space-y-1.5 text-sm text-gray-600">
+              <div key={campaign.id} className="action-card section-card p-5">
+                <h3 className="card-title font-semibold text-gray-900 mb-2">{campaign.name}</h3>
+                <div className="space-y-1.5 body-compact text-gray-600">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     <span>Start: {formatDate(campaign.startTime, "long")}</span>
@@ -359,9 +365,9 @@ export default function Dashboard() {
       )}
 
       {/* Recent Jobs */}
-      <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <section className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Price Jobs</h2>
+            <h2 className="section-title font-semibold text-gray-900">Recent Price Jobs</h2>
           <Link
             href="/history"
             className="text-sm text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
@@ -374,17 +380,17 @@ export default function Dashboard() {
         {loading ? (
           <div className="py-10 text-center text-sm text-gray-500">Loading recent jobs...</div>
         ) : logs.length === 0 ? (
-          <div className="py-12 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+            <div className="py-12 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100/80 mb-4">
               <DollarSign className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No price changes yet</h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <h3 className="section-title font-semibold text-gray-900 mb-2">No price changes yet</h3>
+            <p className="body-compact text-gray-500 mb-4">
               Start your first bulk update to change prices across your store
             </p>
             <Link
               href="/bulk-pricing"
-              className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md text-sm font-medium"
+              className="btn-primary inline-block text-sm"
             >
               Start Bulk Update
             </Link>
@@ -404,7 +410,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {logs.map((log) => (
-                  <tr key={log.id} className="border-b hover:bg-gray-50">
+                  <tr key={log.id} className="border-b hover:bg-blue-50/40 transition-colors">
                     <td className="py-3 pr-4 text-gray-900 font-medium">{log.action}</td>
                     <td className="py-3 px-4 text-gray-600">{log.details || "—"}</td>
                     <td className="py-3 px-4 text-right text-gray-900 font-semibold">
@@ -452,8 +458,8 @@ export default function Dashboard() {
 
       {/* Recent Activity Feed */}
       {logs.length > 0 && (
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+        <section className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-6">
+          <h2 className="section-title font-semibold text-gray-900 mb-4">Recent Activity</h2>
           <div className="space-y-3">
             {logs.slice(0, 5).map((log) => (
               <div key={log.id} className="flex items-start gap-3 text-sm">

@@ -81,7 +81,7 @@ export default function App({ Component, pageProps }: AppProps) {
   if (checkingAuth) {
     return (
       <ShopifyAppProvider>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-600">
+        <div className="min-h-screen flex items-center justify-center text-gray-600">
           Checking store authentication...
         </div>
       </ShopifyAppProvider>
@@ -90,7 +90,7 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <ShopifyAppProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         {isDemo && <DemoBanner />}
         <Navigation />
         <main className={isBulkPricingPage ? "" : "container mx-auto py-8"}>
