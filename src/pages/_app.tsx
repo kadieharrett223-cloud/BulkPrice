@@ -17,6 +17,7 @@ const PUBLIC_RESOURCE_ROUTES = new Set([
   "/docs",
   "/pricing",
   "/changelog",
+  "/tutorial-video-internal",
 ]);
 
 export default function App({ Component, pageProps }: AppProps) {
