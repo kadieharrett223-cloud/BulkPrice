@@ -9,6 +9,20 @@ import { useEffect, useState } from "react";
 import { DEMO_SHOP } from "@lib/mock-data";
 import { resolveShop } from "@lib/use-shop";
 import axios from "axios";
+import { getSessionToken } from "@lib/app-bridge";
+
+// Attach Shopify session token to every internal API request when embedded.
+axios.interceptors.request.use(async (config) => {
+  // Only intercept same-origin API calls
+  if (config.url?.startsWith("/api/")) {
+    const token = await getSessionToken();
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
 
 const PUBLIC_RESOURCE_ROUTES = new Set([
   "/privacy",

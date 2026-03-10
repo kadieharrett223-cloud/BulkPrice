@@ -8,6 +8,8 @@ export default function Document() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="The Perfect Shopify Bulk Price Editor" />
         <link rel="icon" href="/favicon.ico" />
+        {/* Shopify App Bridge CDN — required for embedded app checks */}
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
       </Head>
       <body>
         <Main />
