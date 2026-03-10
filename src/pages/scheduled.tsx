@@ -536,13 +536,13 @@ export default function ScheduledPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto dashboard-wrapper space-y-10">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="section-title font-bold text-gray-900 mb-2">
             Sale Calendar
           </h1>
-          <p className="text-gray-600">
+          <p className="body-compact text-gray-600">
             Plan and run calendar-based promotions for your store
           </p>
         </div>
@@ -554,7 +554,7 @@ export default function ScheduledPage() {
             }
             setShowForm(!showForm);
           }}
-          className="flex items-center space-x-2 bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+          className="btn-primary inline-flex items-center space-x-2"
         >
           <Plus className="w-5 h-5" />
           <span>{isPremium ? "Add Calendar Sale" : "Upgrade to Premium"}</span>
@@ -562,19 +562,21 @@ export default function ScheduledPage() {
       </div>
 
       {!isPremium && (
-        <div className="mb-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-5 text-white shadow-lg">
+        <div className="mb-6 section-card bg-white/85 border border-blue-200 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <Lock className="w-5 h-5" />
-                <h3 className="font-bold text-lg">Unlock Scheduled Sales & Automation</h3>
+                <div className="icon-pill">
+                  <Lock className="w-5 h-5 text-blue-700" />
+                </div>
+                <h3 className="section-title font-bold text-gray-900">Unlock Scheduled Sales & Automation</h3>
               </div>
-              <p className="text-sm text-white/90 mb-3">
+              <p className="body-compact text-gray-700 mb-3">
                 Create, edit, and automate price changes with calendar scheduling, task tracking, and smart campaigns. 
-                <span className="inline-block ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">Preview below</span>
+                <span className="inline-block ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">Preview below</span>
               </p>
             </div>
-            <span className="text-xs px-3 py-1.5 bg-white/20 rounded-full font-semibold whitespace-nowrap">
+            <span className="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full font-semibold whitespace-nowrap">
               {usageLabel}
             </span>
           </div>
@@ -582,20 +584,20 @@ export default function ScheduledPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 mb-8">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6">
+        <div className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-5">
             <button
               onClick={goPrevMonth}
-              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="section-title font-bold text-gray-900">
               {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </h2>
             <button
               onClick={goNextMonth}
-              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-blue-50 hover:border-blue-300 transition-colors"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -623,7 +625,7 @@ export default function ScheduledPage() {
                 key={index}
                 className={`min-h-[68px] border rounded-lg p-2 transition-all ${
                   cell
-                    ? "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 cursor-pointer"
+                    ? "border-gray-200 bg-white/90 hover:bg-blue-50/50 hover:border-blue-300 cursor-pointer"
                     : "border-transparent"
                 }`}
               >
@@ -670,12 +672,14 @@ export default function ScheduledPage() {
           </div>
         </div>
 
-        <aside className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 h-fit">
+        <aside className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-6 h-fit">
           <div className="flex items-center gap-2 mb-3">
-            <CalendarDays className="w-5 h-5 text-blue-600" />
-            <h3 className="text-base font-bold text-gray-900">Calendar Tasks</h3>
+            <div className="icon-pill">
+              <CalendarDays className="w-5 h-5 text-blue-600" />
+            </div>
+            <h3 className="card-title font-bold text-gray-900">Calendar Tasks</h3>
           </div>
-          <p className="text-sm text-gray-600 mb-4">Prepare upcoming promotions</p>
+          <p className="body-compact text-gray-600 mb-4">Prepare upcoming promotions</p>
 
           <div className="flex gap-2 mb-4">
             <input
@@ -689,7 +693,7 @@ export default function ScheduledPage() {
             <button
               onClick={addPremiumTask}
               disabled={!isPremium}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 transition-colors"
+              className="btn-primary text-sm disabled:opacity-50"
             >
               Add
             </button>
@@ -715,7 +719,7 @@ export default function ScheduledPage() {
 
       {/* Form */}
       {showForm && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 mb-8">
+        <div className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-8 mb-8">
           <div className="flex flex-wrap gap-3 mb-6">
             {["Campaign details", "Select products", "Set pricing rule", "Schedule", "Preview"].map((step, index) => (
               <div key={step} className="inline-flex items-center gap-2 text-sm text-gray-700">
@@ -729,8 +733,8 @@ export default function ScheduledPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
             <div className="space-y-6">
-              <section className="border border-gray-200 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Campaign Details</h3>
+              <section className="action-card section-card">
+                <h3 className="section-title font-semibold text-gray-900 mb-4">Campaign Details</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Name</label>
@@ -755,8 +759,8 @@ export default function ScheduledPage() {
                 </div>
               </section>
 
-              <section className="border border-gray-200 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Pricing Rule</h3>
+              <section className="action-card section-card">
+                <h3 className="section-title font-semibold text-gray-900 mb-4">Pricing Rule</h3>
 
                 <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <p className="text-sm font-semibold text-blue-900 mb-2">Quick Sale by Percentage</p>
@@ -881,8 +885,8 @@ export default function ScheduledPage() {
                 </div>
               </section>
 
-              <section className="border border-gray-200 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Target Products</h3>
+              <section className="action-card section-card">
+                <h3 className="section-title font-semibold text-gray-900 mb-4">Target Products</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Collection</label>
@@ -949,8 +953,8 @@ export default function ScheduledPage() {
                 </div>
               </section>
 
-              <section className="border border-gray-200 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule</h3>
+              <section className="action-card section-card">
+                <h3 className="section-title font-semibold text-gray-900 mb-4">Schedule</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Sale Start Date & Time</label>
@@ -994,12 +998,12 @@ export default function ScheduledPage() {
                 </label>
               </section>
 
-              <section className="border border-gray-200 rounded-xl p-5">
+              <section className="action-card section-card">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Sale Impact Preview</h3>
+                  <h3 className="section-title font-semibold text-gray-900">Sale Impact Preview</h3>
                   <button
                     onClick={calculateImpact}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                    className="btn-primary text-sm"
                   >
                     Calculate Impact
                   </button>
@@ -1064,15 +1068,15 @@ export default function ScheduledPage() {
                 </button>
                 <button
                   onClick={handleSaveForm}
-                  className="flex-1 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700"
+                  className="flex-1 btn-primary"
                 >
                   {editingScheduleId ? "Update Schedule" : "Create Schedule"}
                 </button>
               </div>
             </div>
 
-            <aside className="border border-gray-200 rounded-xl shadow-lg p-6 h-fit">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Campaign Summary</h3>
+            <aside className="section-card bg-white/90 border border-gray-200 rounded-2xl shadow-sm p-6 h-fit">
+              <h3 className="section-title font-semibold text-gray-900 mb-4">Campaign Summary</h3>
               <div className="space-y-3 text-sm">
                 <div>
                   <p className="text-gray-500">Name</p>
@@ -1117,7 +1121,7 @@ export default function ScheduledPage() {
       )}
 
       {/* List */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+      <div className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         {loading ? (
           <div className="px-8 py-12 text-center text-gray-500">Loading...</div>
         ) : changes.length === 0 ? (
@@ -1133,7 +1137,7 @@ export default function ScheduledPage() {
                 }
                 setShowForm(true);
               }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+              className="btn-primary inline-flex items-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Schedule your first sale
@@ -1144,7 +1148,7 @@ export default function ScheduledPage() {
             {changes.map((change) => (
               <div
                 key={change.id}
-                className="p-6 hover:bg-gray-50 transition-colors"
+                className="p-6 hover:bg-blue-50/40 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>

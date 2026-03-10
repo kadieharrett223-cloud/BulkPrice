@@ -46,39 +46,43 @@ export default function HistoryPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto dashboard-wrapper space-y-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Activity History</h1>
-        <p className="text-gray-600">
+        <h1 className="section-title font-bold text-gray-900 mb-2">Activity History</h1>
+        <p className="body-compact text-gray-600">
           Track all price changes made to your Shopify store
         </p>
       </div>
 
       {/* Search */}
-      <div className="mb-6 relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <div className="mb-6 relative section-card action-card p-4">
+        <div className="icon-pill absolute left-6 top-1/2 transform -translate-y-1/2">
+          <Search className="w-5 h-5 text-blue-600" />
+        </div>
         <input
           type="text"
           placeholder="Search activity..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-shopify"
+          className="w-full pl-16 pr-4 py-3 border border-gray-300 rounded-lg bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
+      <div className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         {loading ? (
           <div className="px-8 py-12 text-center text-gray-500">Loading...</div>
         ) : filtered.length === 0 ? (
           <div className="px-8 py-12 text-center">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No activity history yet</p>
+            <div className="icon-pill mx-auto mb-3">
+              <Calendar className="w-6 h-6 text-blue-500" />
+            </div>
+            <p className="body-compact text-gray-500">No activity history yet</p>
           </div>
         ) : (
           <>
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-blue-50/50 border-b border-blue-100">
                 <tr>
                   <th className="px-6 py-3 text-left font-semibold text-gray-700">
                     Action
@@ -94,9 +98,9 @@ export default function HistoryPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-gray-100">
                 {filtered.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
+                  <tr key={log.id} className="hover:bg-blue-50/40 transition-colors">
                     <td className="px-6 py-4">
                       <span className="font-semibold text-gray-900">
                         {log.action}
@@ -127,7 +131,7 @@ export default function HistoryPage() {
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 disabled:opacity-50"
               >
                 Previous
               </button>
@@ -135,7 +139,7 @@ export default function HistoryPage() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={filtered.length < limit}
-                className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 disabled:opacity-50"
               >
                 Next
               </button>
