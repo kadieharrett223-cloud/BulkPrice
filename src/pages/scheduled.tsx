@@ -9,6 +9,17 @@ import { resolveShop } from "@lib/use-shop";
 
 const SALE_DISCOUNT_PRESETS = [10, 15, 20, 25];
 
+function parseMultiValueInput(input: string): string[] {
+  return Array.from(
+    new Set(
+      input
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 export default function ScheduledPage() {
   const router = useRouter();
   const [changes, setChanges] = useState<ScheduledChange[]>([]);
@@ -210,9 +221,9 @@ export default function ScheduledPage() {
     setMarginProtectionMode(action.marginProtection?.mode || "fixed_minimum");
     setMarginProtectionValue(action.marginProtection?.value || 10);
 
-    setCollectionInput(change.filters.collections?.[0] || "");
-    setVendorInput(change.filters.vendors?.[0] || "");
-    setProductTypeInput(change.filters.productTypes?.[0] || "");
+    setCollectionInput((change.filters.collections || []).join(", "));
+    setVendorInput((change.filters.vendors || []).join(", "));
+    setProductTypeInput((change.filters.productTypes || []).join(", "));
     setStatus((change.filters.statuses?.[0] as "active" | "draft" | "archived" | "") || "");
     setPriceMin(change.filters.priceRange?.min || 0);
     setPriceMax(change.filters.priceRange?.max || 300);
@@ -297,14 +308,18 @@ export default function ScheduledPage() {
   const buildFilters = (): PriceFilter => {
     const filters: PriceFilter = {};
 
-    if (collectionInput.trim()) {
-      filters.collections = [collectionInput.trim()];
+    const selectedCollections = parseMultiValueInput(collectionInput);
+    const selectedVendors = parseMultiValueInput(vendorInput);
+    const selectedProductTypes = parseMultiValueInput(productTypeInput);
+
+    if (selectedCollections.length) {
+      filters.collections = selectedCollections;
     }
-    if (vendorInput.trim()) {
-      filters.vendors = [vendorInput.trim()];
+    if (selectedVendors.length) {
+      filters.vendors = selectedVendors;
     }
-    if (productTypeInput.trim()) {
-      filters.productTypes = [productTypeInput.trim()];
+    if (selectedProductTypes.length) {
+      filters.productTypes = selectedProductTypes;
     }
     if (status) {
       filters.statuses = [status];
@@ -834,27 +849,30 @@ export default function ScheduledPage() {
                     <input
                       value={collectionInput}
                       onChange={(e) => setCollectionInput(e.target.value)}
-                      placeholder="Summer Collection"
+                      placeholder="Summer Collection, Electronics, Winter Collection"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Add multiple with commas.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Vendor</label>
                     <input
                       value={vendorInput}
                       onChange={(e) => setVendorInput(e.target.value)}
-                      placeholder="Nike"
+                      placeholder="Nike, Adidas, Puma"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Add multiple with commas.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Product Type</label>
                     <input
                       value={productTypeInput}
                       onChange={(e) => setProductTypeInput(e.target.value)}
-                      placeholder="Shoes"
+                      placeholder="Shoes, Accessories"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Add multiple with commas.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>

@@ -29,6 +29,25 @@ const STEPS: Array<{ key: Step; title: string }> = [
   { key: "confirm", title: "Apply Update" },
 ];
 
+function parseMultiValueInput(input: string): string[] {
+  return Array.from(
+    new Set(
+      input
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function toggleMultiValueInput(input: string, value: string): string {
+  const parsed = parseMultiValueInput(input);
+  if (parsed.includes(value)) {
+    return parsed.filter((item) => item !== value).join(", ");
+  }
+  return [...parsed, value].join(", ");
+}
+
 export default function BulkPricingPage() {
   const [currentStep, setCurrentStep] = useState<Step>("filter");
   const [filters, setFilters] = useState<PriceFilter>({});
@@ -105,14 +124,18 @@ export default function BulkPricingPage() {
   const applyFilters = async () => {
     const nextFilters: PriceFilter = {};
 
-    if (collectionInput.trim()) {
-      nextFilters.collections = [collectionInput.trim()];
+    const selectedCollections = parseMultiValueInput(collectionInput);
+    const selectedVendors = parseMultiValueInput(vendorInput);
+    const selectedProductTypes = parseMultiValueInput(productTypeInput);
+
+    if (selectedCollections.length) {
+      nextFilters.collections = selectedCollections;
     }
-    if (vendorInput.trim()) {
-      nextFilters.vendors = [vendorInput.trim()];
+    if (selectedVendors.length) {
+      nextFilters.vendors = selectedVendors;
     }
-    if (productTypeInput.trim()) {
-      nextFilters.productTypes = [productTypeInput.trim()];
+    if (selectedProductTypes.length) {
+      nextFilters.productTypes = selectedProductTypes;
     }
     if (status) {
       nextFilters.statuses = [status];
@@ -319,7 +342,7 @@ export default function BulkPricingPage() {
               <input
                 value={collectionInput}
                 onChange={(event) => setCollectionInput(event.target.value)}
-                placeholder="Select collections"
+                placeholder="Select collections (comma-separated)"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
               {isDemoMode && demoCollections.length > 0 && (
@@ -328,9 +351,9 @@ export default function BulkPricingPage() {
                     <button
                       key={collection}
                       type="button"
-                      onClick={() => setCollectionInput(collection)}
+                      onClick={() => setCollectionInput((previous) => toggleMultiValueInput(previous, collection))}
                       className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                        collectionInput === collection
+                        parseMultiValueInput(collectionInput).includes(collection)
                           ? "border-blue-600 bg-blue-600 text-white"
                           : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                       }`}
@@ -347,7 +370,7 @@ export default function BulkPricingPage() {
               <input
                 value={vendorInput}
                 onChange={(event) => setVendorInput(event.target.value)}
-                placeholder="Select vendors"
+                placeholder="Select vendors (comma-separated)"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
               {isDemoMode && demoVendors.length > 0 && (
@@ -356,9 +379,9 @@ export default function BulkPricingPage() {
                     <button
                       key={vendor}
                       type="button"
-                      onClick={() => setVendorInput(vendor)}
+                      onClick={() => setVendorInput((previous) => toggleMultiValueInput(previous, vendor))}
                       className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                        vendorInput === vendor
+                        parseMultiValueInput(vendorInput).includes(vendor)
                           ? "border-purple-600 bg-purple-600 text-white"
                           : "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
                       }`}
@@ -375,7 +398,7 @@ export default function BulkPricingPage() {
               <input
                 value={productTypeInput}
                 onChange={(event) => setProductTypeInput(event.target.value)}
-                placeholder="Select product types"
+                placeholder="Select product types (comma-separated)"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
               {isDemoMode && demoProductTypes.length > 0 && (
@@ -384,9 +407,11 @@ export default function BulkPricingPage() {
                     <button
                       key={productType}
                       type="button"
-                      onClick={() => setProductTypeInput(productType)}
+                      onClick={() =>
+                        setProductTypeInput((previous) => toggleMultiValueInput(previous, productType))
+                      }
                       className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                        productTypeInput === productType
+                        parseMultiValueInput(productTypeInput).includes(productType)
                           ? "border-emerald-600 bg-emerald-600 text-white"
                           : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                       }`}

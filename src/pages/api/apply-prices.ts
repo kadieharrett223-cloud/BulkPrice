@@ -163,8 +163,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const params: any[] = [shop, shop];
 
     if (filters.collections?.length) {
-      filterQuery += " AND (p.collections LIKE ?)";
-      params.push(`%${filters.collections[0]}%`);
+      filterQuery += ` AND (${filters.collections.map(() => "p.collections LIKE ?").join(" OR ")})`;
+      params.push(...filters.collections.map((value) => `%${value}%`));
     }
 
     if (filters.vendors?.length) {
