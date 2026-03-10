@@ -3,14 +3,22 @@ import { sessionStorage } from "@/lib/session-storage";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
-    return res.status(405).json({ success: false, error: "Method not allowed" });
+    return res.status(405).json({
+      success: false,
+      error: "Method not allowed",
+      data: { authenticated: false },
+    });
   }
 
   try {
     const { shop } = req.query;
 
     if (!shop || typeof shop !== "string") {
-      return res.status(400).json({ success: false, error: "Missing shop parameter" });
+      return res.status(400).json({
+        success: false,
+        error: "Missing shop parameter",
+        data: { authenticated: false },
+      });
     }
 
     const sessions = await sessionStorage.findSessionsByShop(shop);
@@ -34,6 +42,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error: any) {
     console.error("Error checking auth status:", error);
-    return res.status(500).json({ success: false, error: error.message || "Failed to check auth status" });
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Failed to check auth status",
+      data: { authenticated: false },
+    });
   }
 }

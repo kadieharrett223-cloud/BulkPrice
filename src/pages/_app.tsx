@@ -13,14 +13,32 @@ import { getSessionToken } from "@lib/app-bridge";
 
 // Attach Shopify session token to every internal API request when embedded.
 axios.interceptors.request.use(async (config) => {
+  const url = config.url || "";
+
   // Only intercept same-origin API calls
-  if (config.url?.startsWith("/api/")) {
-    const token = await getSessionToken();
+  if (!url.startsWith("/api/")) {
+    return config;
+  }
+
+  // Never block auth bootstrap calls on App Bridge token retrieval.
+  if (url.startsWith("/api/auth/status") || url.startsWith("/api/auth")) {
+    return config;
+  }
+
+  try {
+    const token = await Promise.race<string | null>([
+      getSessionToken(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+    ]);
+
     if (token) {
       config.headers = config.headers ?? {};
       config.headers["Authorization"] = `Bearer ${token}`;
     }
+  } catch {
+    // If token retrieval fails, continue request without Authorization header.
   }
+
   return config;
 });
 
