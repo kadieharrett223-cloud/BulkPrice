@@ -10,9 +10,19 @@ import { DEMO_SHOP } from "@lib/mock-data";
 import { resolveShop } from "@lib/use-shop";
 import axios from "axios";
 
+const PUBLIC_RESOURCE_ROUTES = new Set([
+  "/privacy",
+  "/faq",
+  "/tutorial",
+  "/docs",
+  "/pricing",
+  "/changelog",
+]);
+
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const isBulkPricingPage = router.pathname === "/bulk-pricing";
+  const isPublicResourcePage = PUBLIC_RESOURCE_ROUTES.has(router.pathname);
   const [isDemo, setIsDemo] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -42,6 +52,11 @@ export default function App({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     if (!router.isReady || typeof window === "undefined") {
+      return;
+    }
+
+    if (isPublicResourcePage) {
+      setCheckingAuth(false);
       return;
     }
 
@@ -76,9 +91,9 @@ export default function App({ Component, pageProps }: AppProps) {
     };
 
     verifyAndAuthenticate();
-  }, [router.isReady, router.pathname]);
+  }, [router.isReady, router.pathname, isPublicResourcePage]);
 
-  if (checkingAuth) {
+  if (checkingAuth && !isPublicResourcePage) {
     return (
       <ShopifyAppProvider>
         <div className="min-h-screen flex items-center justify-center text-gray-600">
@@ -91,9 +106,9 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <ShopifyAppProvider>
       <div className="min-h-screen">
-        {isDemo && <DemoBanner />}
-        <Navigation />
-        <main className={isBulkPricingPage ? "" : "w-full max-w-[1400px] mx-auto px-6 py-8"}>
+        {!isPublicResourcePage && isDemo && <DemoBanner />}
+        {!isPublicResourcePage && <Navigation />}
+        <main className={isPublicResourcePage ? "" : isBulkPricingPage ? "" : "w-full max-w-[1400px] mx-auto px-6 py-8"}>
           <Component {...pageProps} />
         </main>
       </div>
