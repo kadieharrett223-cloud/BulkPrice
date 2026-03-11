@@ -74,10 +74,9 @@ export default function BulkPricingPage() {
   const [inventoryMax, setInventoryMax] = useState(500);
   const [acknowledged, setAcknowledged] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
-
-  const demoCollections = useMemo(() => getMockCollectionOptions(), []);
-  const demoVendors = useMemo(() => getMockVendorOptions(), []);
-  const demoProductTypes = useMemo(() => getMockProductTypeOptions(), []);
+  const [availableCollections, setAvailableCollections] = useState<string[]>([]);
+  const [availableVendors, setAvailableVendors] = useState<string[]>([]);
+  const [availableProductTypes, setAvailableProductTypes] = useState<string[]>([]);
 
   const activeStepIndex = STEPS.findIndex((item) => item.key === currentStep);
 
@@ -96,8 +95,31 @@ export default function BulkPricingPage() {
       }
     };
 
+    const hydrateFilterOptions = async () => {
+      if (!shop) return;
+
+      try {
+        const response = await axios.get(`/api/filter-options?shop=${encodeURIComponent(shop)}`);
+        if (response.data.success && response.data.data) {
+          setAvailableCollections(response.data.data.collections || []);
+          setAvailableVendors(response.data.data.vendors || []);
+          setAvailableProductTypes(response.data.data.productTypes || []);
+          return;
+        }
+      } catch {
+        // Fall back to demo defaults if available.
+      }
+
+      if (shop === DEMO_SHOP) {
+        setAvailableCollections(getMockCollectionOptions());
+        setAvailableVendors(getMockVendorOptions());
+        setAvailableProductTypes(getMockProductTypeOptions());
+      }
+    };
+
     if (shop) {
       hydrateInitialCount();
+      hydrateFilterOptions();
     }
   }, []);
 
@@ -345,9 +367,9 @@ export default function BulkPricingPage() {
                 placeholder="Select collections (comma-separated)"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
-              {isDemoMode && demoCollections.length > 0 && (
+              {availableCollections.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {demoCollections.map((collection) => (
+                  {availableCollections.map((collection) => (
                     <button
                       key={collection}
                       type="button"
@@ -363,6 +385,9 @@ export default function BulkPricingPage() {
                   ))}
                 </div>
               )}
+              {availableCollections.length === 0 && !isDemoMode && (
+                <p className="mt-2 text-xs text-gray-500">No collection options yet. Sync products to load clickable options.</p>
+              )}
             </div>
 
             <div>
@@ -373,9 +398,9 @@ export default function BulkPricingPage() {
                 placeholder="Select vendors (comma-separated)"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
-              {isDemoMode && demoVendors.length > 0 && (
+              {availableVendors.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {demoVendors.map((vendor) => (
+                  {availableVendors.map((vendor) => (
                     <button
                       key={vendor}
                       type="button"
@@ -401,9 +426,9 @@ export default function BulkPricingPage() {
                 placeholder="Select product types (comma-separated)"
                 className="w-full border border-gray-200 rounded-md px-3 py-2"
               />
-              {isDemoMode && demoProductTypes.length > 0 && (
+              {availableProductTypes.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {demoProductTypes.map((productType) => (
+                  {availableProductTypes.map((productType) => (
                     <button
                       key={productType}
                       type="button"
