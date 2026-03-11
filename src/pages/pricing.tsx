@@ -10,7 +10,6 @@ const plans = [
       "Bulk price updates",
       "Price history",
       "Rollback support",
-      "CSV import/export",
     ],
   },
   {
