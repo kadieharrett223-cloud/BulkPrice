@@ -4,7 +4,6 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { resolveShop } from "@lib/use-shop";
 import {
-  Download,
   Clock,
   DollarSign,
   FileText,
@@ -330,23 +329,6 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link
-            href="/bulk-pricing"
-            className="action-card section-card group"
-          >
-            <div className="flex items-center gap-2 mb-2 text-gray-900">
-              <div className="icon-pill">
-                <Download className="w-5 h-5 text-blue-600" />
-              </div>
-              <h3 className="section-title font-semibold">Import / Export CSV</h3>
-            </div>
-            <p className="body-compact text-gray-500 mt-1">
-              Upload or download pricing data
-            </p>
-            <div className="btn-primary inline-block mt-4 text-sm">
-              Open CSV Tools
-            </div>
-          </Link>
         </div>
       </section>
 

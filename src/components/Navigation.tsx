@@ -48,7 +48,12 @@ export default function Navigation() {
           : "Redirecting to Shopify billing confirmation...";
         toast.success(message, { id: toastId });
         setShowPlans(false);
-        window.location.href = response.data.confirmationUrl;
+        const destination = response.data.confirmationUrl as string;
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = destination;
+        } else {
+          window.location.href = destination;
+        }
         return;
       }
 
