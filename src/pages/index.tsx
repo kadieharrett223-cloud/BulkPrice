@@ -158,6 +158,18 @@ export default function Dashboard() {
 
   return (
     <div className="w-full max-w-[1400px] mx-auto dashboard-wrapper space-y-10">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleSyncProducts}
+          disabled={syncing}
+          className="btn-primary text-xs px-3 py-1.5 inline-flex items-center gap-1 disabled:opacity-60"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Syncing..." : "Sync"}
+        </button>
+      </div>
+
       {/* Sync Banner */}
       {stats.totalProducts === 0 && !loading && (
         <div className="section-card bg-blue-50/85 border border-blue-200 rounded-2xl p-6">
