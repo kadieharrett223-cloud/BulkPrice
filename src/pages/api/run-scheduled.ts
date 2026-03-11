@@ -292,9 +292,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           .filter(Boolean);
 
     const results = [];
+    const shopErrors: Array<{ shop: string; error: string }> = [];
     for (const shop of shopsToRun) {
-      const result = await runForShop(shop);
-      results.push(result);
+      try {
+        const result = await runForShop(shop);
+        results.push(result);
+      } catch (shopError: any) {
+        console.error(`Error running scheduled changes for ${shop}:`, shopError);
+        results.push({
+          shop,
+          appliedSchedules: 0,
+          appliedVariants: 0,
+          revertedSchedules: 0,
+          revertedVariants: 0,
+        });
+        shopErrors.push({
+          shop,
+          error: shopError?.message || "Unknown scheduling error",
+        });
+      }
     }
 
     const totals = results.reduce(
@@ -314,6 +330,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         ...totals,
         shopsProcessed: shopsToRun.length,
         byShop: results,
+        errors: shopErrors,
       },
     });
   } catch (error: any) {

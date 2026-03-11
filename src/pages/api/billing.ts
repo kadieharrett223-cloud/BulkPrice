@@ -17,18 +17,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Get session
-    const sessions = await sessionStorage.findSessionsByShop(shop);
-    const session = sessions[0];
+    // Prefer offline session (stable for billing/admin API calls)
+    const offlineSessionId = shopify.session.getOfflineId(shop);
+    let session = await sessionStorage.loadSession(offlineSessionId);
 
+    // Fallback to any stored session for backward compatibility
     if (!session) {
+      const sessions = await sessionStorage.findSessionsByShop(shop);
+      session = sessions.find((candidate) => Boolean(candidate?.accessToken)) || sessions[0];
+    }
+
+    if (!session?.accessToken) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
     if (req.method === "GET") {
       // Check current subscription status
-      const status = await checkSubscriptionStatus(session);
-      return res.json({ success: true, ...status, plans: BILLING_PLANS });
+      try {
+        const status = await checkSubscriptionStatus(session);
+        return res.json({ success: true, ...status, plans: BILLING_PLANS });
+      } catch (statusError: any) {
+        console.error("Billing status check failed:", statusError);
+        return res.json({
+          success: true,
+          hasActiveSubscription: false,
+          plans: BILLING_PLANS,
+          warning: statusError?.message || "Unable to verify current subscription status",
+        });
+      }
     }
 
     if (req.method === "POST") {
@@ -45,7 +61,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Invalid plan" });
       }
 
-      const confirmationUrl = await createRecurringCharge(session, normalizedPlan);
+      let confirmationUrl = "";
+      try {
+        confirmationUrl = await createRecurringCharge(session, normalizedPlan);
+      } catch (createError: any) {
+        console.error("Failed to create recurring charge:", createError);
+        return res.status(502).json({
+          error: createError?.message || "Failed to create Shopify subscription",
+        });
+      }
 
       return res.json({
         success: true,
