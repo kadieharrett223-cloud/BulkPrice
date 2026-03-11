@@ -4,6 +4,17 @@ import { sessionStorage } from "@/lib/session-storage";
 import { shopify } from "@/lib/shopify-config";
 import { verifySessionToken } from "@/lib/verify-session-token";
 
+function buildManagedPricingRedirectUrl(shop: string): string {
+  const storeHandle = shop.replace(/\.myshopify\.com$/i, "");
+  const appHandle = process.env.SHOPIFY_APP_HANDLE?.trim();
+
+  if (appHandle) {
+    return `https://admin.shopify.com/store/${storeHandle}/apps/${appHandle}`;
+  }
+
+  return `https://admin.shopify.com/store/${storeHandle}/apps`;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { shop } = req.query;
@@ -66,8 +77,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         confirmationUrl = await createRecurringCharge(session, normalizedPlan);
       } catch (createError: any) {
         console.error("Failed to create recurring charge:", createError);
+
+        const message = createError?.message || "Failed to create Shopify subscription";
+        if (message.includes("Managed Pricing Apps cannot use the Billing API")) {
+          return res.json({
+            success: true,
+            managedPricing: true,
+            confirmationUrl: buildManagedPricingRedirectUrl(shop),
+            message: "This app uses Shopify managed pricing. Continue in Shopify Admin to manage plan.",
+          });
+        }
+
         return res.status(502).json({
-          error: createError?.message || "Failed to create Shopify subscription",
+          error: message,
         });
       }
 

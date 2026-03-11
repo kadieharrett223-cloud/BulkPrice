@@ -43,7 +43,10 @@ export default function Navigation() {
       });
 
       if (response.data?.success && response.data?.confirmationUrl) {
-        toast.success("Redirecting to Shopify billing confirmation...", { id: toastId });
+        const message = response.data?.managedPricing
+          ? "Redirecting to Shopify plan management..."
+          : "Redirecting to Shopify billing confirmation...";
+        toast.success(message, { id: toastId });
         setShowPlans(false);
         window.location.href = response.data.confirmationUrl;
         return;

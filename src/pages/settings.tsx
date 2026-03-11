@@ -56,6 +56,10 @@ export default function SettingsPage() {
         throw new Error(response.data?.error || "Failed to start upgrade");
       }
 
+      if (response.data?.managedPricing) {
+        toast.success("This app uses Shopify managed pricing. Continue in Shopify Admin.");
+      }
+
       const confirmationUrl = response.data.confirmationUrl as string;
       if (typeof window !== "undefined") {
         if (window.top && window.top !== window.self) {
