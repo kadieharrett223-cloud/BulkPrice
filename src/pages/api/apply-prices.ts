@@ -164,6 +164,104 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // Create GraphQL client
     const client = new shopify.clients.Graphql({ session });
 
+    const getErrorMessage = (error: any): string => {
+      const responseErrors = error?.response?.body?.errors;
+      if (Array.isArray(responseErrors) && responseErrors.length > 0) {
+        const joined = responseErrors.map((item: any) => item?.message).filter(Boolean).join("; ");
+        if (joined) return joined;
+      }
+
+      const nestedUserErrors = error?.response?.body?.data?.productVariantUpdate?.userErrors;
+      if (Array.isArray(nestedUserErrors) && nestedUserErrors.length > 0) {
+        const joined = nestedUserErrors.map((item: any) => item?.message).filter(Boolean).join("; ");
+        if (joined) return joined;
+      }
+
+      return error?.message || "Unknown Shopify update error";
+    };
+
+    const updateVariantInShopify = async (
+      variantShopifyId: string,
+      price: number,
+      compareAtPrice: number | null
+    ): Promise<void> => {
+      const variantGid = `gid://shopify/ProductVariant/${variantShopifyId}`;
+      const mutation = `
+        mutation productVariantUpdate($input: ProductVariantInput!) {
+          productVariantUpdate(input: $input) {
+            productVariant {
+              id
+              price
+              compareAtPrice
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+
+      const variables = {
+        input: {
+          id: variantGid,
+          price: price.toFixed(2),
+          ...(compareAtPrice !== undefined && compareAtPrice !== null && {
+            compareAtPrice: compareAtPrice.toFixed(2),
+          }),
+        },
+      };
+
+      try {
+        const response: any = await client.request(mutation, {
+          variables,
+        });
+
+        const payload = response?.data?.productVariantUpdate || response?.body?.data?.productVariantUpdate;
+        const userErrors = payload?.userErrors || [];
+
+        if (userErrors.length > 0) {
+          throw new Error(userErrors.map((item: any) => item?.message).filter(Boolean).join("; ") || "Shopify validation error");
+        }
+
+        return;
+      } catch (graphQlError: any) {
+        const restPayload: any = {
+          variant: {
+            id: Number(variantShopifyId),
+            price: price.toFixed(2),
+          },
+        };
+
+        if (compareAtPrice !== undefined && compareAtPrice !== null) {
+          restPayload.variant.compare_at_price = compareAtPrice.toFixed(2);
+        }
+
+        if (!session.accessToken) {
+          throw new Error("Missing Shopify access token for REST fallback");
+        }
+
+        const restResponse = await fetch(
+          `https://${shop}/admin/api/2024-01/variants/${variantShopifyId}.json`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Shopify-Access-Token": session.accessToken,
+            },
+            body: JSON.stringify(restPayload),
+          }
+        );
+
+        if (!restResponse.ok) {
+          const restBody = await restResponse.text();
+          const graphQlMessage = getErrorMessage(graphQlError);
+          const restMessage = restBody?.slice(0, 250) || `REST ${restResponse.status}`;
+          throw new Error(`${graphQlMessage} | ${restMessage}`);
+        }
+      }
+    };
+
     // Build filter query
     let filterQuery = "WHERE p.shop = ? AND v.shop = ?";
     const params: any[] = [shop, shop];
@@ -216,6 +314,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const updates: any[] = [];
     let failedCount = 0;
+    let firstFailureMessage = "";
     const attemptedCount = variants.length;
     const targetField = action.targetField || "base";
 
@@ -248,50 +347,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           ? oldCompareAtPrice
           : Math.round(compareCalculated * 100) / 100;
 
-      // Update variant in Shopify via GraphQL
       try {
-        const variantGid = `gid://shopify/ProductVariant/${variant.shopifyId}`;
-        const mutation = `
-          mutation productVariantUpdate($input: ProductVariantInput!) {
-            productVariantUpdate(input: $input) {
-              productVariant {
-                id
-                price
-                compareAtPrice
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-
-        const variables = {
-          input: {
-            id: variantGid,
-            price: newPrice.toFixed(2),
-            ...(newCompareAtPrice !== undefined && newCompareAtPrice !== null && {
-              compareAtPrice: newCompareAtPrice.toFixed(2),
-            }),
-          },
-        };
-
-        const response: any = await client.request(mutation, {
-          variables,
-        });
-
-        const payload = response?.data?.productVariantUpdate || response?.body?.data?.productVariantUpdate;
-        const userErrors = payload?.userErrors || [];
-
-        if (userErrors.length > 0) {
-          console.error(`Errors updating variant ${variant.shopifyId}:`, userErrors);
-          failedCount += 1;
-          continue;
-        }
+        await updateVariantInShopify(variant.shopifyId, newPrice, newCompareAtPrice);
       } catch (error) {
         console.error(`Error updating variant ${variant.shopifyId}:`, error);
         failedCount += 1;
+        if (!firstFailureMessage) {
+          firstFailureMessage = getErrorMessage(error);
+        }
         continue;
       }
 
@@ -338,7 +401,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     if (attemptedCount > 0 && successCount === 0) {
       return res.status(502).json({
         success: false,
-        error: "Failed to update prices in Shopify. Please check app scopes and re-authenticate.",
+        error: firstFailureMessage
+          ? `Failed to update prices in Shopify: ${firstFailureMessage}`
+          : "Failed to update prices in Shopify. Please check app scopes and re-authenticate.",
         data: {
           changeGroupId,
           attemptedCount,
