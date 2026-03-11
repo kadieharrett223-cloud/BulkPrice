@@ -67,6 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     let cursor: string | null = null;
     let totalProducts = 0;
     let totalVariants = 0;
+    let failedProducts = 0;
+    let failedVariants = 0;
 
     while (hasNextPage) {
       const query = `
@@ -138,106 +140,123 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
 
       for (const edge of productsData.edges) {
-        const product = edge.node;
-        if (!product?.id) continue;
-        
-        // Extract numeric ID from GraphQL GID
-        const productShopifyId = extractShopifyId(product.id);
-        if (!productShopifyId) continue;
-        const productId = generateId("product");
+        try {
+          const product = edge.node;
+          if (!product?.id) continue;
 
-        const collections = Array.isArray(product.collections?.edges)
-          ? product.collections.edges.map((e: any) => e?.node?.title).filter(Boolean).join(",")
-          : "";
-        const tags = Array.isArray(product.tags) ? product.tags.join(",") : product.tags || "";
+          // Extract numeric ID from GraphQL GID
+          const productShopifyId = extractShopifyId(product.id);
+          if (!productShopifyId) continue;
+          const productId = generateId("product");
 
-        // Insert or update product
-        await db.run(
-          `INSERT INTO products (id, shop, shopifyId, title, vendor, productType, status, tags, collections, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(shopifyId) DO UPDATE SET
-             shop = excluded.shop,
-             title = excluded.title,
-             vendor = excluded.vendor,
-             productType = excluded.productType,
-             status = excluded.status,
-             tags = excluded.tags,
-             collections = excluded.collections,
-             updatedAt = excluded.updatedAt`,
-          [
-            productId,
-            shop,
-            productShopifyId,
-            product.title,
-            product.vendor || "",
-            product.productType || "",
-            typeof product.status === "string" ? product.status.toLowerCase() : "active",
-            tags,
-            collections,
-            product.createdAt,
-            product.updatedAt,
-          ]
-        );
+          const collections = Array.isArray(product.collections?.edges)
+            ? product.collections.edges.map((e: any) => e?.node?.title).filter(Boolean).join(",")
+            : "";
+          const tags = Array.isArray(product.tags) ? product.tags.join(",") : product.tags || "";
 
-        totalProducts++;
-
-        // Get the actual product ID from DB (in case of conflict/update)
-        const dbProduct = await db.get("SELECT id FROM products WHERE shopifyId = ? AND shop = ?", [productShopifyId, shop]);
-        if (!dbProduct?.id) {
-          continue;
-        }
-        const actualProductId = dbProduct.id;
-
-        // Insert variants
-        const variantEdges = Array.isArray(product.variants?.edges) ? product.variants.edges : [];
-        for (const variantEdge of variantEdges) {
-          const variant = variantEdge.node;
-          if (!variant?.id) continue;
-
-          const variantShopifyId = extractShopifyId(variant.id);
-          if (!variantShopifyId) continue;
-          const variantId = generateId("variant");
-
-          const options = JSON.stringify(
-            (Array.isArray(variant.selectedOptions) ? variant.selectedOptions : []).reduce((acc: any, opt: any) => {
-              acc[opt.name] = opt.value;
-              return acc;
-            }, {})
-          );
-
-          const parsedPrice = Number.parseFloat(variant.price);
-          if (!Number.isFinite(parsedPrice)) continue;
-
+          // Insert or update product
           await db.run(
-            `INSERT INTO variants (id, shop, shopifyId, productId, title, price, compareAtPrice, sku, inventory, options, createdAt, updatedAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO products (id, shop, shopifyId, title, vendor, productType, status, tags, collections, createdAt, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(shopifyId) DO UPDATE SET
                shop = excluded.shop,
-               productId = excluded.productId,
                title = excluded.title,
-               price = excluded.price,
-               compareAtPrice = excluded.compareAtPrice,
-               sku = excluded.sku,
-               inventory = excluded.inventory,
-               options = excluded.options,
+               vendor = excluded.vendor,
+               productType = excluded.productType,
+               status = excluded.status,
+               tags = excluded.tags,
+               collections = excluded.collections,
                updatedAt = excluded.updatedAt`,
             [
-              variantId,
+              productId,
               shop,
-              variantShopifyId,
-              actualProductId,
-              variant.title,
-              parsedPrice,
-              variant.compareAtPrice ? Number.parseFloat(variant.compareAtPrice) : null,
-              variant.sku || "",
-              Number.isFinite(Number(variant.inventoryQuantity)) ? Number(variant.inventoryQuantity) : 0,
-              options,
-              new Date().toISOString(),
-              new Date().toISOString(),
+              productShopifyId,
+              product.title,
+              product.vendor || "",
+              product.productType || "",
+              typeof product.status === "string" ? product.status.toLowerCase() : "active",
+              tags,
+              collections,
+              product.createdAt,
+              product.updatedAt,
             ]
           );
 
-          totalVariants++;
+          totalProducts++;
+
+          // Get the actual product ID from DB (in case of conflict/update)
+          const dbProduct = await db.get("SELECT id FROM products WHERE shopifyId = ? AND shop = ?", [productShopifyId, shop]);
+          if (!dbProduct?.id) {
+            continue;
+          }
+          const actualProductId = dbProduct.id;
+
+          // Insert variants
+          const variantEdges = Array.isArray(product.variants?.edges) ? product.variants.edges : [];
+          for (const variantEdge of variantEdges) {
+            try {
+              const variant = variantEdge.node;
+              if (!variant?.id) continue;
+
+              const variantShopifyId = extractShopifyId(variant.id);
+              if (!variantShopifyId) continue;
+              const variantId = generateId("variant");
+
+              const options = JSON.stringify(
+                (Array.isArray(variant.selectedOptions) ? variant.selectedOptions : []).reduce((acc: any, opt: any) => {
+                  if (!opt?.name) return acc;
+                  acc[opt.name] = opt.value;
+                  return acc;
+                }, {})
+              );
+
+              const parsedPrice = Number.parseFloat(variant.price);
+              if (!Number.isFinite(parsedPrice)) {
+                failedVariants++;
+                continue;
+              }
+
+              const parsedCompareAtPrice = Number.parseFloat(variant.compareAtPrice);
+              const compareAtPrice = Number.isFinite(parsedCompareAtPrice) ? parsedCompareAtPrice : null;
+
+              await db.run(
+                `INSERT INTO variants (id, shop, shopifyId, productId, title, price, compareAtPrice, sku, inventory, options, createdAt, updatedAt)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(shopifyId) DO UPDATE SET
+                   shop = excluded.shop,
+                   productId = excluded.productId,
+                   title = excluded.title,
+                   price = excluded.price,
+                   compareAtPrice = excluded.compareAtPrice,
+                   sku = excluded.sku,
+                   inventory = excluded.inventory,
+                   options = excluded.options,
+                   updatedAt = excluded.updatedAt`,
+                [
+                  variantId,
+                  shop,
+                  variantShopifyId,
+                  actualProductId,
+                  variant.title,
+                  parsedPrice,
+                  compareAtPrice,
+                  variant.sku || "",
+                  Number.isFinite(Number(variant.inventoryQuantity)) ? Number(variant.inventoryQuantity) : 0,
+                  options,
+                  new Date().toISOString(),
+                  new Date().toISOString(),
+                ]
+              );
+
+              totalVariants++;
+            } catch (variantError) {
+              failedVariants++;
+              console.warn("Skipping variant during sync due to data/runtime error:", variantError);
+            }
+          }
+        } catch (productError) {
+          failedProducts++;
+          console.warn("Skipping product during sync due to data/runtime error:", productError);
         }
       }
 
@@ -254,18 +273,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         logId,
         shop,
         "Product sync completed",
-        `Synced ${totalProducts} products with ${totalVariants} variants`,
+        `Synced ${totalProducts} products with ${totalVariants} variants (${failedProducts} products skipped, ${failedVariants} variants skipped)`,
         totalProducts,
         new Date().toISOString(),
       ]
     );
+
+    if (totalProducts === 0 && failedProducts > 0) {
+      return res.status(502).json({
+        success: false,
+        error: "Shopify data could not be processed. Please retry sync.",
+      });
+    }
 
     return res.status(200).json({
       success: true,
       data: {
         productsSync: totalProducts,
         variantsSync: totalVariants,
-        message: "Products synced successfully from Shopify",
+        failedProducts,
+        failedVariants,
+        message:
+          failedProducts > 0 || failedVariants > 0
+            ? "Products synced with some records skipped due to invalid data"
+            : "Products synced successfully from Shopify",
       },
     });
   } catch (error: any) {
