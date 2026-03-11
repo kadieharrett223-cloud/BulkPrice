@@ -4,9 +4,23 @@ import { sessionStorage } from "@/lib/session-storage";
 import { shopify } from "@/lib/shopify-config";
 import { verifySessionToken } from "@/lib/verify-session-token";
 
-function buildManagedPricingRedirectUrl(shop: string): string {
+function buildManagedPricingRedirectUrl(shop: string, req: NextApiRequest): string {
   const storeHandle = shop.replace(/\.myshopify\.com$/i, "");
-  const appHandle = process.env.SHOPIFY_APP_HANDLE?.trim();
+  const appHandleFromEnv = process.env.SHOPIFY_APP_HANDLE?.trim();
+
+  const referer = req.headers.referer || req.headers.referrer || "";
+  let appHandleFromReferer = "";
+  if (typeof referer === "string" && referer.includes("/apps/")) {
+    try {
+      const refererUrl = new URL(referer);
+      const appSegment = refererUrl.pathname.split("/apps/")[1] || "";
+      appHandleFromReferer = appSegment.split("/")[0] || "";
+    } catch {
+      appHandleFromReferer = "";
+    }
+  }
+
+  const appHandle = appHandleFromEnv || appHandleFromReferer || "pricepilotpro";
 
   if (appHandle) {
     return `https://admin.shopify.com/store/${storeHandle}/apps/${appHandle}`;
@@ -83,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.json({
             success: true,
             managedPricing: true,
-            confirmationUrl: buildManagedPricingRedirectUrl(shop),
+            confirmationUrl: buildManagedPricingRedirectUrl(shop, req),
             message: "This app uses Shopify managed pricing. Continue in Shopify Admin to manage plan.",
           });
         }
