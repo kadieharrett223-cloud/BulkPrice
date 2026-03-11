@@ -48,6 +48,19 @@ function toggleMultiValueInput(input: string, value: string): string {
   return [...parsed, value].join(", ");
 }
 
+function toNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatMoney(value: unknown): string {
+  return toNumber(value).toFixed(2);
+}
+
+function formatPercent(value: unknown): string {
+  return toNumber(value).toFixed(2);
+}
+
 export default function BulkPricingPage() {
   const [currentStep, setCurrentStep] = useState<Step>("filter");
   const [filters, setFilters] = useState<PriceFilter>({});
@@ -222,7 +235,22 @@ export default function BulkPricingPage() {
       });
 
       if (response.data.success) {
-        setPreview(response.data.data.preview);
+        const normalizedPreview = (response.data.data.preview || []).map((item: any) => ({
+          ...item,
+          oldPrice: toNumber(item.oldPrice),
+          newPrice: toNumber(item.newPrice),
+          oldCompareAtPrice:
+            item.oldCompareAtPrice === null || item.oldCompareAtPrice === undefined
+              ? undefined
+              : toNumber(item.oldCompareAtPrice),
+          newCompareAtPrice:
+            item.newCompareAtPrice === null || item.newCompareAtPrice === undefined
+              ? undefined
+              : toNumber(item.newCompareAtPrice),
+          change: toNumber(item.change),
+        }));
+
+        setPreview(normalizedPreview);
         setChangeGroupId(response.data.data.changeGroupId);
         setCurrentStep("preview");
       }
@@ -627,11 +655,11 @@ export default function BulkPricingPage() {
                       {item.productTitle}
                       <span className="text-xs text-gray-500 ml-2">{item.variantTitle}</span>
                     </td>
-                    <td className="py-3 px-3 text-right">${item.oldPrice.toFixed(2)}</td>
-                    <td className="py-3 px-3 text-right">${item.newPrice.toFixed(2)}</td>
-                    <td className={`py-3 px-3 text-right font-semibold ${item.change >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {item.change >= 0 ? "+" : ""}
-                      {item.change.toFixed(2)}%
+                    <td className="py-3 px-3 text-right">${formatMoney(item.oldPrice)}</td>
+                    <td className="py-3 px-3 text-right">${formatMoney(item.newPrice)}</td>
+                    <td className={`py-3 px-3 text-right font-semibold ${toNumber(item.change) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {toNumber(item.change) >= 0 ? "+" : ""}
+                      {formatPercent(item.change)}%
                     </td>
                   </tr>
                 ))}

@@ -147,16 +147,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // Generate preview
     const changeGroupId = generateChangeGroupId();
     const preview: PricePreview[] = variants.map((v) => {
+      const oldPrice = Number(v.price);
+      const oldCompareAtPrice =
+        v.compareAtPrice === null || v.compareAtPrice === undefined
+          ? undefined
+          : Number(v.compareAtPrice);
+
+      if (!Number.isFinite(oldPrice)) {
+        throw new Error(`Invalid variant price for ${v.id}`);
+      }
+
       const targetField = action.targetField || "base";
-      const baseCalculated = calculateNewPrice(v.price, action);
-      const protectedBaseResult = applyMarginProtection(baseCalculated, v.price, action, v.cost);
-      const compareBaseSource = v.compareAtPrice ?? v.price;
+      const baseCalculated = calculateNewPrice(oldPrice, action);
+      const protectedBaseResult = applyMarginProtection(baseCalculated, oldPrice, action, v.cost);
+      const compareBaseSource = oldCompareAtPrice ?? oldPrice;
       const compareCalculated = calculateNewPrice(compareBaseSource, action);
 
-      const newPrice = targetField === "compare_at" ? v.price : protectedBaseResult.price;
+      const newPrice = targetField === "compare_at" ? oldPrice : protectedBaseResult.price;
       const newCompareAtPrice =
         targetField === "base"
-          ? v.compareAtPrice
+          ? oldCompareAtPrice
           : Math.round(compareCalculated * 100) / 100;
 
       return {
@@ -164,12 +174,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         productId: v.productId,
         productTitle: v.productTitle,
         variantTitle: v.title,
-        oldPrice: v.price,
+        oldPrice,
         newPrice,
-        oldCompareAtPrice: v.compareAtPrice,
+        oldCompareAtPrice,
         newCompareAtPrice,
-        change: ((newPrice - v.price) / v.price) * 100,
-        savings: Math.max(0, v.price - newPrice),
+        change: ((newPrice - oldPrice) / oldPrice) * 100,
+        savings: Math.max(0, oldPrice - newPrice),
         wasProtected: targetField === "compare_at" ? false : protectedBaseResult.wasProtected,
         protectionFloor: targetField === "compare_at" ? undefined : protectedBaseResult.floor,
       };
