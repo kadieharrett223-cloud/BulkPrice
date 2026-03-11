@@ -216,24 +216,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const updates: any[] = [];
     let failedCount = 0;
+    const attemptedCount = variants.length;
     const targetField = action.targetField || "base";
 
     for (const variant of variants) {
-      const baseCalculated = calculateNewPrice(variant.price, action);
+      const oldPrice = Number(variant.price);
+      const oldCompareAtPrice =
+        variant.compareAtPrice === null || variant.compareAtPrice === undefined
+          ? null
+          : Number(variant.compareAtPrice);
+
+      if (!Number.isFinite(oldPrice)) {
+        failedCount += 1;
+        continue;
+      }
+
+      const baseCalculated = calculateNewPrice(oldPrice, action);
       const { price: protectedBasePrice } = applyMarginProtection(
         baseCalculated,
-        variant.price,
+        oldPrice,
         action,
         variant.cost
       );
 
-      const compareSource = variant.compareAtPrice ?? variant.price;
+      const compareSource = oldCompareAtPrice ?? oldPrice;
       const compareCalculated = calculateNewPrice(compareSource, action);
 
-      const newPrice = targetField === "compare_at" ? variant.price : protectedBasePrice;
+      const newPrice = targetField === "compare_at" ? oldPrice : protectedBasePrice;
       const newCompareAtPrice =
         targetField === "base"
-          ? variant.compareAtPrice
+          ? oldCompareAtPrice
           : Math.round(compareCalculated * 100) / 100;
 
       // Update variant in Shopify via GraphQL
@@ -265,15 +277,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           },
         };
 
-        const response: any = await client.query({
-          data: {
-            query: mutation,
-            variables,
-          },
+        const response: any = await client.request(mutation, {
+          variables,
         });
 
-        if (response.body.data.productVariantUpdate.userErrors.length > 0) {
-          console.error(`Errors updating variant ${variant.shopifyId}:`, response.body.data.productVariantUpdate.userErrors);
+        const payload = response?.data?.productVariantUpdate || response?.body?.data?.productVariantUpdate;
+        const userErrors = payload?.userErrors || [];
+
+        if (userErrors.length > 0) {
+          console.error(`Errors updating variant ${variant.shopifyId}:`, userErrors);
           failedCount += 1;
           continue;
         }
@@ -295,9 +307,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
           shop,
           variant.id,
           variant.productId,
-          variant.price,
+          oldPrice,
           newPrice,
-          variant.compareAtPrice,
+          oldCompareAtPrice,
           newCompareAtPrice,
           action.type,
           action.value,
@@ -316,8 +328,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
       updates.push({
         variantId: variant.id,
-        oldPrice: variant.price,
+        oldPrice,
         newPrice,
+      });
+    }
+
+    const successCount = updates.length;
+
+    if (attemptedCount > 0 && successCount === 0) {
+      return res.status(502).json({
+        success: false,
+        error: "Failed to update prices in Shopify. Please check app scopes and re-authenticate.",
+        data: {
+          changeGroupId,
+          attemptedCount,
+          affectedCount: 0,
+          failedCount,
+          durationMs: Date.now() - startedAt,
+          updates,
+        },
       });
     }
 
@@ -352,14 +381,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       INSERT INTO activityLog (id, shop, action, affectedCount, changeGroupId, timestamp)
       VALUES (?, ?, ?, ?, ?, ?)
     `,
-      [logId, shop, `Applied ${action.type} to variants`, variants.length, changeGroupId, new Date().toISOString()]
+      [logId, shop, `Applied ${action.type} to variants`, successCount, changeGroupId, new Date().toISOString()]
     );
 
     return res.status(200).json({
       success: true,
       data: {
         changeGroupId,
-        affectedCount: variants.length,
+        attemptedCount,
+        affectedCount: successCount,
         failedCount,
         durationMs: Date.now() - startedAt,
         updates,
