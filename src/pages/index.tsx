@@ -261,7 +261,27 @@ export default function Dashboard() {
       {/* Primary Actions */}
       <section className="section-card bg-white/85 border border-gray-200 rounded-2xl shadow-sm p-6">
         <h2 className="section-title font-semibold text-gray-900 mb-6">Primary Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <button
+            type="button"
+            onClick={handleSyncProducts}
+            disabled={syncing}
+            className="action-card section-card group text-left disabled:opacity-60"
+          >
+            <div className="flex items-center gap-2 mb-2 text-gray-900">
+              <div className="icon-pill">
+                <RefreshCw className={`w-5 h-5 text-blue-600 ${syncing ? "animate-spin" : ""}`} />
+              </div>
+              <h3 className="section-title font-semibold">Sync Products</h3>
+            </div>
+            <p className="body-compact text-gray-500 mt-1">
+              Import latest products and variants from Shopify
+            </p>
+            <div className="btn-primary inline-block mt-4 text-sm">
+              {syncing ? "Syncing..." : "Sync from Shopify"}
+            </div>
+          </button>
+
           <Link
             href="/bulk-pricing"
             className="action-card section-card group"
