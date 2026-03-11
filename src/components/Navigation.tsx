@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { BarChart3, DollarSign, Clock, FileText, ChevronDown } from "lucide-react";
+import { BarChart3, DollarSign, Clock, FileText, ChevronDown, Sparkles } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -111,6 +111,8 @@ export default function Navigation() {
     fetchPlanUsage();
   }, [router.isReady, router.query.shop]);
 
+  const isStarterPlan = usagePlan === "starter";
+
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50">
       <div className="px-6 py-3 flex items-center justify-between">
@@ -147,6 +149,17 @@ export default function Navigation() {
           }`}>
             {usagePlan === "starter" && renewalLabel ? `${usageLabel} · Renews ${renewalLabel}` : usageLabel}
           </div>
+          {isStarterPlan && (
+            <button
+              onClick={() => handlePlanCheckout("premium")}
+              disabled={upgrading}
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold hover:bg-amber-100 disabled:opacity-60"
+              title="Upgrade to Unlimited plan"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Go Unlimited
+            </button>
+          )}
           <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-medium">
             pri
           </span>
@@ -184,7 +197,7 @@ export default function Navigation() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-semibold text-blue-900">Premium</p>
-                        <p className="text-xs text-blue-700">$5.99/month · Unlimited bulk changes</p>
+                        <p className="text-xs text-blue-700">$5.99/month · Unlimited changes + Calendar automation</p>
                       </div>
                       <button
                         onClick={() => handlePlanCheckout("premium")}
