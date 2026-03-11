@@ -68,7 +68,6 @@ export default function ScheduledPage() {
     averageChangePercent: 0,
     lowestPrice: 0,
     highestPrice: 0,
-    estimatedRevenueImpact: 0,
     belowCostCount: 0,
     loaded: false,
   });
@@ -345,7 +344,6 @@ export default function ScheduledPage() {
           averageChangePercent: 0,
           lowestPrice: 0,
           highestPrice: 0,
-          estimatedRevenueImpact: 0,
           belowCostCount: 0,
           loaded: false,
         });
@@ -439,10 +437,6 @@ export default function ScheduledPage() {
         previewRows.length > 0
           ? Math.max(...previewRows.map((row: any) => Number(row.newPrice || 0)))
           : 0;
-      const estimatedRevenueImpact =
-        previewRows.length > 0
-          ? previewRows.reduce((sum: number, row: any) => sum + (Number(row.newPrice || 0) - Number(row.oldPrice || 0)), 0)
-          : 0;
       const belowCostCount =
         previewRows.length > 0
           ? previewRows.filter((row: any) => row.wasProtected).length
@@ -454,7 +448,6 @@ export default function ScheduledPage() {
         averageChangePercent,
         lowestPrice,
         highestPrice,
-        estimatedRevenueImpact,
         belowCostCount,
         loaded: true,
       });
@@ -466,7 +459,6 @@ export default function ScheduledPage() {
         averageChangePercent: 0,
         lowestPrice: 0,
         highestPrice: 0,
-        estimatedRevenueImpact: 0,
         belowCostCount: 0,
         loaded: true,
       });
@@ -1090,7 +1082,7 @@ export default function ScheduledPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <p className="text-gray-500">Lowest price after change</p>
                     <p className="text-xl font-semibold text-gray-900">${impact.lowestPrice.toFixed(2)}</p>
@@ -1098,12 +1090,6 @@ export default function ScheduledPage() {
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <p className="text-gray-500">Highest price after change</p>
                     <p className="text-xl font-semibold text-gray-900">${impact.highestPrice.toFixed(2)}</p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                    <p className="text-gray-500">Estimated revenue impact</p>
-                    <p className={`text-xl font-semibold ${impact.estimatedRevenueImpact <= 0 ? "text-red-600" : "text-green-600"}`}>
-                      {impact.estimatedRevenueImpact > 0 ? "+" : ""}${impact.estimatedRevenueImpact.toFixed(2)}
-                    </p>
                   </div>
                 </div>
 

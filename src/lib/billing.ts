@@ -47,12 +47,15 @@ export async function createRecurringCharge(
 
   const client = new shopify.clients.Graphql({ session });
 
-  const response = await client.query({
-    data: {
-      query: `mutation AppSubscriptionCreate($name: String!, $price: Decimal!, $trialDays: Int!) {
+  const resolvedAppUrl =
+    process.env.SHOPIFY_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+  const response: any = await client.request(
+    `mutation AppSubscriptionCreate($name: String!, $price: Decimal!, $trialDays: Int!) {
         appSubscriptionCreate(
           name: $name
-          returnUrl: "${process.env.SHOPIFY_APP_URL}?charge_id={charge_id}"
+          returnUrl: "${resolvedAppUrl}?charge_id={charge_id}"
           test: ${process.env.NODE_ENV !== "production"}
           lineItems: [
             {
@@ -77,15 +80,25 @@ export async function createRecurringCharge(
           }
         }
       }`,
+    {
       variables: {
         name: planDetails.name,
         price: planDetails.price,
         trialDays: planDetails.trialDays,
       },
-    },
-  });
+    }
+  );
 
-  const { data } = response.body as any;
+  const topErrors = response?.errors || response?.body?.errors;
+  if (Array.isArray(topErrors) && topErrors.length > 0) {
+    throw new Error(topErrors[0]?.message || "Billing GraphQL error");
+  }
+
+  const data = response?.data || response?.body?.data;
+
+  if (!data?.appSubscriptionCreate) {
+    throw new Error("Unexpected billing response from Shopify");
+  }
 
   if (data.appSubscriptionCreate.userErrors.length > 0) {
     throw new Error(data.appSubscriptionCreate.userErrors[0].message);
@@ -101,9 +114,7 @@ export async function checkSubscriptionStatus(session: Session): Promise<{
 }> {
   const client = new shopify.clients.Graphql({ session });
 
-  const response = await client.query({
-    data: {
-      query: `{
+  const response: any = await client.request(`{
         currentAppInstallation {
           activeSubscriptions {
             id
@@ -127,11 +138,14 @@ export async function checkSubscriptionStatus(session: Session): Promise<{
             }
           }
         }
-      }`,
-    },
-  });
+      }`);
 
-  const { data } = response.body as any;
+  const topErrors = response?.errors || response?.body?.errors;
+  if (Array.isArray(topErrors) && topErrors.length > 0) {
+    throw new Error(topErrors[0]?.message || "Billing GraphQL error");
+  }
+
+  const data = response?.data || response?.body?.data;
   const subscriptions = data.currentAppInstallation.activeSubscriptions;
 
   if (subscriptions.length === 0) {
@@ -153,9 +167,8 @@ export async function cancelSubscription(
 ): Promise<boolean> {
   const client = new shopify.clients.Graphql({ session });
 
-  const response = await client.query({
-    data: {
-      query: `mutation AppSubscriptionCancel($id: ID!) {
+  const response: any = await client.request(
+    `mutation AppSubscriptionCancel($id: ID!) {
         appSubscriptionCancel(id: $id) {
           appSubscription {
             id
@@ -167,13 +180,19 @@ export async function cancelSubscription(
           }
         }
       }`,
+    {
       variables: {
         id: subscriptionId,
       },
-    },
-  });
+    }
+  );
 
-  const { data } = response.body as any;
+  const topErrors = response?.errors || response?.body?.errors;
+  if (Array.isArray(topErrors) && topErrors.length > 0) {
+    throw new Error(topErrors[0]?.message || "Billing GraphQL error");
+  }
+
+  const data = response?.data || response?.body?.data;
 
   if (data.appSubscriptionCancel.userErrors.length > 0) {
     throw new Error(data.appSubscriptionCancel.userErrors[0].message);

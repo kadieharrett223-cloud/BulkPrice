@@ -28,14 +28,14 @@ async function updateVariantInShopify(client: any, shopifyVariantId: string, pri
     },
   };
 
-  const response: any = await client.query({
-    data: {
-      query: mutation,
-      variables,
-    },
+  const response: any = await client.request(mutation, {
+    variables,
   });
 
-  const errors = response?.body?.data?.productVariantUpdate?.userErrors || [];
+  const errors =
+    response?.data?.productVariantUpdate?.userErrors ||
+    response?.body?.data?.productVariantUpdate?.userErrors ||
+    [];
   if (errors.length > 0) {
     throw new Error(errors[0].message || "Shopify update failed");
   }
