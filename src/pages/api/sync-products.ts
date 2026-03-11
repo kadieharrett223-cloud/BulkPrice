@@ -70,8 +70,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     while (hasNextPage) {
       const query = `
-        {
-          products(first: 50${cursor ? `, after: "${cursor}"` : ""}) {
+        query SyncProducts($first: Int!, $after: String) {
+          products(first: $first, after: $after) {
             edges {
               node {
                 id
@@ -110,19 +110,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
             }
             pageInfo {
               hasNextPage
+              endCursor
             }
           }
         }
       `;
 
-      const response: any = await client.query({ data: query });
-      const graphqlErrors = response?.body?.errors;
+      const response: any = await client.request(query, {
+        variables: {
+          first: 50,
+          after: cursor,
+        },
+      });
+
+      const graphqlErrors = response?.errors || response?.body?.errors;
       if (Array.isArray(graphqlErrors) && graphqlErrors.length > 0) {
         const errorMessage = graphqlErrors.map((e: any) => e?.message).filter(Boolean).join("; ") || "Shopify GraphQL error";
         return res.status(502).json({ success: false, error: errorMessage });
       }
 
-      const productsData = response?.body?.data?.products;
+      const productsData = response?.data?.products || response?.body?.data?.products;
       if (!productsData || !Array.isArray(productsData.edges) || !productsData.pageInfo) {
         return res.status(502).json({
           success: false,
@@ -235,9 +242,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
 
       hasNextPage = Boolean(productsData.pageInfo.hasNextPage);
-      if (hasNextPage && productsData.edges.length > 0) {
-        cursor = productsData.edges[productsData.edges.length - 1].cursor;
-      }
+      cursor = hasNextPage ? productsData.pageInfo.endCursor || null : null;
     }
 
     // Log activity
