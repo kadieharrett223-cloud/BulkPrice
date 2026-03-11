@@ -5,6 +5,22 @@
 
 let appBridgeAppPromise: Promise<any | null> | null = null;
 
+function resolveApiKey(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const fromEnv = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  const fromMeta = document
+    .querySelector('meta[name="shopify-api-key"]')
+    ?.getAttribute("content")
+    ?.trim();
+
+  return fromMeta || null;
+}
+
 function resolveHost(): string | null {
   if (typeof window === "undefined") return null;
 
@@ -26,7 +42,7 @@ async function getAppBridgeApp(): Promise<any | null> {
   }
 
   appBridgeAppPromise = (async () => {
-    const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
+    const apiKey = resolveApiKey();
     const host = resolveHost();
 
     if (!apiKey || !host) {
