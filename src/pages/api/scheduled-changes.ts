@@ -11,6 +11,72 @@ import {
   isDemoShop,
   updateMockScheduledChange,
 } from "@lib/mock-data";
+import { sessionStorage } from "@/lib/session-storage";
+import { shopify } from "@/lib/shopify-config";
+import { checkSubscriptionStatus } from "@/lib/billing";
+
+function normalizePlan(rawPlan: string | undefined): "starter" | "premium" {
+  const normalized = (rawPlan || "starter").toLowerCase();
+  if (normalized === "premium" || normalized === "pro" || normalized === "advanced") return "premium";
+  return "starter";
+}
+
+function getAffectedRows(result: any): number {
+  if (typeof result?.changes === "number") return result.changes;
+  if (typeof result?.rowCount === "number") return result.rowCount;
+  return 0;
+}
+
+async function upsertShopPlan(db: any, shop: string, plan: "starter" | "premium") {
+  const now = new Date().toISOString();
+  const updateResult = await db.run("UPDATE settings SET plan = ?, updatedAt = ? WHERE shop = ?", [plan, now, shop]);
+  if (getAffectedRows(updateResult) > 0) return;
+
+  await db.run(
+    `INSERT INTO settings (id, shop, plan, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?)`,
+    [generateId("settings"), shop, plan, now, now]
+  );
+}
+
+async function resolvePlanForShop(db: any, shop: string): Promise<"starter" | "premium"> {
+  const settings = await db.get("SELECT plan FROM settings WHERE shop = ? LIMIT 1", [shop]);
+  const persistedPlan = normalizePlan(settings?.plan);
+  if (persistedPlan === "premium") return "premium";
+
+  try {
+    const offlineSessionId = shopify.session.getOfflineId(shop);
+    let session = await sessionStorage.loadSession(offlineSessionId);
+
+    if (!session) {
+      const sessions = await sessionStorage.findSessionsByShop(shop);
+      session = sessions.find((candidate) => Boolean(candidate?.accessToken)) || sessions[0];
+    }
+
+    if (!session?.accessToken) {
+      return persistedPlan;
+    }
+
+    const billingStatus = await checkSubscriptionStatus(session);
+    const statusPlan = normalizePlan(billingStatus?.plan);
+
+    if (billingStatus?.hasActiveSubscription && statusPlan === "premium") {
+      await upsertShopPlan(db, shop, "premium");
+      return "premium";
+    }
+  } catch {
+    return persistedPlan;
+  }
+
+  return persistedPlan;
+}
+
+function normalizeScheduleDateTime(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse<any>>) {
   try {
@@ -166,20 +232,28 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse<ApiResponse<
     return res.status(400).json({ success: false, error: "Shop parameter required" });
   }
 
-  const settings = await db.get("SELECT plan FROM settings WHERE shop = ? LIMIT 1", [shop]);
-  const rawPlan = (settings?.plan || "starter") as string;
-  const normalizedPlan =
-    rawPlan === "basic"
-      ? "starter"
-      : rawPlan === "pro" || rawPlan === "advanced"
-      ? "premium"
-      : rawPlan;
+  const normalizedPlan = await resolvePlanForShop(db, shop);
 
   if (normalizedPlan !== "premium") {
     return res.status(402).json({
       success: false,
       error: "Upgrade to Premium to pre-schedule sales and add calendar tasks.",
     });
+  }
+
+  const normalizedStartTime = normalizeScheduleDateTime(startTime);
+  const normalizedEndTime = normalizeScheduleDateTime(endTime);
+
+  if (!normalizedStartTime) {
+    return res.status(400).json({ success: false, error: "Valid startTime is required" });
+  }
+
+  if (endTime && !normalizedEndTime) {
+    return res.status(400).json({ success: false, error: "Invalid endTime" });
+  }
+
+  if (normalizedEndTime && new Date(normalizedEndTime).getTime() <= new Date(normalizedStartTime).getTime()) {
+    return res.status(400).json({ success: false, error: "End time must be after start time" });
   }
 
   const id = generateId("scheduled");
@@ -197,8 +271,8 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse<ApiResponse<
       description,
       JSON.stringify(filters),
       JSON.stringify(action),
-      startTime,
-      endTime,
+      normalizedStartTime,
+      normalizedEndTime,
       autoRevert ? 1 : 0,
       "scheduled",
       now,
@@ -221,20 +295,28 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse<ApiResponse<a
   }
 
   if (typeof name === "string" || typeof description === "string" || filters || action || startTime || endTime || typeof autoRevert === "boolean") {
-    const settings = await db.get("SELECT plan FROM settings WHERE shop = ? LIMIT 1", [shop]);
-    const rawPlan = (settings?.plan || "starter") as string;
-    const normalizedPlan =
-      rawPlan === "basic"
-        ? "starter"
-        : rawPlan === "pro" || rawPlan === "advanced"
-        ? "premium"
-        : rawPlan;
+    const normalizedPlan = await resolvePlanForShop(db, shop);
 
     if (normalizedPlan !== "premium") {
       return res.status(402).json({
         success: false,
         error: "Upgrade to Premium to edit scheduled sales.",
       });
+    }
+
+    const normalizedStartTime = typeof startTime === "string" ? normalizeScheduleDateTime(startTime) : null;
+    const normalizedEndTime = typeof endTime === "string" ? normalizeScheduleDateTime(endTime) : null;
+
+    if (typeof startTime === "string" && !normalizedStartTime) {
+      return res.status(400).json({ success: false, error: "Invalid startTime" });
+    }
+
+    if (typeof endTime === "string" && endTime && !normalizedEndTime) {
+      return res.status(400).json({ success: false, error: "Invalid endTime" });
+    }
+
+    if (normalizedStartTime && normalizedEndTime && new Date(normalizedEndTime).getTime() <= new Date(normalizedStartTime).getTime()) {
+      return res.status(400).json({ success: false, error: "End time must be after start time" });
     }
 
     await db.run(
@@ -255,8 +337,8 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse<ApiResponse<a
         typeof description === "string" ? description : null,
         filters ? JSON.stringify(filters) : null,
         action ? JSON.stringify(action) : null,
-        startTime || null,
-        endTime || null,
+        normalizedStartTime || null,
+        normalizedEndTime || null,
         typeof autoRevert === "boolean" ? (autoRevert ? 1 : 0) : null,
         new Date().toISOString(),
         id,

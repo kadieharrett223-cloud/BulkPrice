@@ -10,6 +10,23 @@ import { DEMO_SHOP } from "@lib/mock-data";
 
 const SALE_DISCOUNT_PRESETS = [10, 15, 20, 25];
 
+function toLocalDateTimeInput(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  const local = new Date(date.getTime() - offsetMs);
+  return local.toISOString().slice(0, 16);
+}
+
+function toUtcIsoString(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 function parseMultiValueInput(input: string): string[] {
   return Array.from(
     new Set(
@@ -259,8 +276,8 @@ export default function ScheduledPage() {
     setFormData({
       name: change.name,
       description: change.description || "",
-      startTime: change.startTime ? new Date(change.startTime).toISOString().slice(0, 16) : "",
-      endTime: change.endTime ? new Date(change.endTime).toISOString().slice(0, 16) : "",
+      startTime: toLocalDateTimeInput(change.startTime),
+      endTime: toLocalDateTimeInput(change.endTime),
       autoRevert: Boolean(change.autoRevert),
     });
 
@@ -302,8 +319,23 @@ export default function ScheduledPage() {
     const shop = getCurrentShop();
 
     try {
+      const normalizedStartTime = toUtcIsoString(formData.startTime);
+      const normalizedEndTime = toUtcIsoString(formData.endTime);
+
+      if (!normalizedStartTime) {
+        toast.error("Please choose a valid start date and time");
+        return;
+      }
+
+      if (formData.endTime && !normalizedEndTime) {
+        toast.error("Please choose a valid end date and time");
+        return;
+      }
+
       const payload = {
         ...formData,
+        startTime: normalizedStartTime,
+        endTime: normalizedEndTime,
         filters,
         action,
         shop,
@@ -552,6 +584,7 @@ export default function ScheduledPage() {
       holiday: getHolidayLabel(calendarYear, calendarMonthIndex, day),
       isMockPromo:
         !isPremium &&
+        changes.length === 0 &&
         (() => {
           const date = new Date(calendarYear, calendarMonthIndex, day);
           date.setHours(0, 0, 0, 0);

@@ -28,17 +28,64 @@ async function updateVariantInShopify(client: any, shopifyVariantId: string, pri
     },
   };
 
-  const response: any = await client.request(mutation, {
-    variables,
-  });
+  try {
+    const response: any = await client.request(mutation, {
+      variables,
+    });
 
-  const errors =
-    response?.data?.productVariantUpdate?.userErrors ||
-    response?.body?.data?.productVariantUpdate?.userErrors ||
-    [];
-  if (errors.length > 0) {
-    throw new Error(errors[0].message || "Shopify update failed");
+    const errors =
+      response?.data?.productVariantUpdate?.userErrors ||
+      response?.body?.data?.productVariantUpdate?.userErrors ||
+      [];
+    if (errors.length > 0) {
+      throw new Error(errors[0].message || "Shopify update failed");
+    }
+
+    return;
+  } catch {
+    const session = client?.session;
+    const accessToken = session?.accessToken;
+    const shop = session?.shop;
+
+    if (!accessToken || !shop) {
+      throw new Error("Missing Shopify session for REST fallback");
+    }
+
+    const restPayload: any = {
+      variant: {
+        id: Number(shopifyVariantId),
+        price: price.toFixed(2),
+      },
+    };
+
+    if (compareAtPrice !== undefined && compareAtPrice !== null) {
+      restPayload.variant.compare_at_price = compareAtPrice.toFixed(2);
+    }
+
+    const restResponse = await fetch(`https://${shop}/admin/api/2024-01/variants/${shopifyVariantId}.json`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify(restPayload),
+    });
+
+    if (!restResponse.ok) {
+      const responseText = await restResponse.text();
+      throw new Error(`Shopify REST update failed (${restResponse.status}): ${responseText}`);
+    }
   }
+}
+
+function parseDateToMs(value: unknown): number | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isEnabledAutoRevert(value: unknown): boolean {
+  return value === true || value === 1 || value === "1";
 }
 
 function buildFilterQuery(filters: PriceFilter, shop: string) {
@@ -92,18 +139,24 @@ async function runForShop(shop: string) {
   }
 
   const client = new shopify.clients.Graphql({ session });
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const nowMs = now.getTime();
 
-  const dueSchedules = await db.all(
+  const scheduledRows = await db.all(
     `
     SELECT * FROM scheduledChanges
     WHERE shop = ?
       AND status = 'scheduled'
-      AND startTime <= ?
     ORDER BY startTime ASC
   `,
-    [shop, nowIso]
+    [shop]
   );
+
+  const dueSchedules = scheduledRows.filter((schedule: any) => {
+    const startMs = parseDateToMs(schedule.startTime);
+    return startMs !== null && startMs <= nowMs;
+  });
 
   let appliedSchedules = 0;
   let appliedVariants = 0;
@@ -198,17 +251,19 @@ async function runForShop(shop: string) {
     appliedSchedules += 1;
   }
 
-  const endedSchedules = await db.all(
+  const activeRows = await db.all(
     `
     SELECT * FROM scheduledChanges
     WHERE shop = ?
       AND status = 'active'
-      AND autoRevert = 1
-      AND endTime IS NOT NULL
-      AND endTime <= ?
   `,
-    [shop, nowIso]
+    [shop]
   );
+
+  const endedSchedules = activeRows.filter((schedule: any) => {
+    const endMs = parseDateToMs(schedule.endTime);
+    return isEnabledAutoRevert(schedule.autoRevert) && endMs !== null && endMs <= nowMs;
+  });
 
   let revertedSchedules = 0;
   let revertedVariants = 0;
