@@ -2,6 +2,28 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { shopify } from "@/lib/shopify-config";
 import { sessionStorage } from "@/lib/session-storage";
 
+const OAUTH_HOST_COOKIE = "shopify_oauth_host";
+
+function readCookie(req: NextApiRequest, name: string): string | null {
+  const header = req.headers.cookie;
+  if (!header) return null;
+
+  const parts = header.split(";");
+  for (const part of parts) {
+    const [rawKey, ...rawValueParts] = part.trim().split("=");
+    if (rawKey !== name) continue;
+    const rawValue = rawValueParts.join("=");
+    if (!rawValue) return null;
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+
+  return null;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -27,12 +49,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Redirect to app after successful authentication
-    const host = typeof req.query.host === "string" ? req.query.host : "";
+    const hostFromQuery = typeof req.query.host === "string" ? req.query.host : "";
+    const hostFromCookie = readCookie(req, OAUTH_HOST_COOKIE) || "";
+    const host = hostFromQuery || hostFromCookie;
     const query = new URLSearchParams({ shop: session.shop });
     if (host) {
       query.set("host", host);
     }
     const redirectUrl = `/?${query.toString()}`;
+
+    const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    res.setHeader(
+      "Set-Cookie",
+      `${OAUTH_HOST_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`,
+    );
 
     res.redirect(redirectUrl);
   } catch (error) {

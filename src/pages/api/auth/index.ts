@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { shopify } from "@/lib/shopify-config";
 
+const OAUTH_HOST_COOKIE = "shopify_oauth_host";
+
 function normalizeShop(input: string): string | null {
   const value = input.trim().toLowerCase();
   if (!value) return null;
@@ -56,6 +58,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       typeof req.query.host === "string" || req.query.embedded === "1";
 
     if (isEmbedded) {
+      const host = typeof req.query.host === "string" ? req.query.host : "";
+
+      if (host) {
+        const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+        res.setHeader(
+          "Set-Cookie",
+          `${OAUTH_HOST_COOKIE}=${encodeURIComponent(host)}; Path=/; Max-Age=300; HttpOnly; SameSite=Lax${secure}`,
+        );
+      }
+
       // We are inside the Shopify Admin iframe. Do NOT call auth.begin() here.
       // Just break out to the top window with a plain navigation. The top window
       // will hit /api/auth again, this time without `host`, and auth.begin() will
