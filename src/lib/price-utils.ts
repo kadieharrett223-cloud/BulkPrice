@@ -83,6 +83,21 @@ export function roundPrice(price: number, roundTo: ".99" | ".95" | ".00" = ".99"
   return wholeNumber + target;
 }
 
+export function applyDirectionalRounding(
+  price: number,
+  mode: "none" | "up" | "down" = "none"
+): number {
+  if (mode === "up") {
+    return Math.ceil(price);
+  }
+
+  if (mode === "down") {
+    return Math.floor(price);
+  }
+
+  return Math.round(price * 100) / 100;
+}
+
 export function calculatePercentageChange(oldPrice: number, newPrice: number): number {
   if (oldPrice === 0) return 0;
   return Math.round(((newPrice - oldPrice) / oldPrice) * 10000) / 100;

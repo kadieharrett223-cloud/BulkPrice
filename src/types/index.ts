@@ -84,6 +84,7 @@ export interface PriceFilter {
 export interface PriceAction {
   type: "percentage_increase" | "percentage_decrease" | "fixed_increase" | "fixed_decrease" | "exact" | "round";
   targetField?: "base" | "compare_at" | "both";
+  roundingMode?: "none" | "up" | "down";
   value?: number;
   roundTo?: ".99" | ".95" | ".00";
   includeCompareAt?: boolean;

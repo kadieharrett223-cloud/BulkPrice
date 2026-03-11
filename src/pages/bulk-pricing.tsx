@@ -64,7 +64,12 @@ function formatPercent(value: unknown): string {
 export default function BulkPricingPage() {
   const [currentStep, setCurrentStep] = useState<Step>("filter");
   const [filters, setFilters] = useState<PriceFilter>({});
-  const [action, setAction] = useState<PriceAction>({ type: "percentage_increase", value: 10, targetField: "base" });
+  const [action, setAction] = useState<PriceAction>({
+    type: "percentage_increase",
+    value: 10,
+    targetField: "base",
+    roundingMode: "none",
+  });
   const [preview, setPreview] = useState<PricePreview[]>([]);
   const [changeGroupId, setChangeGroupId] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -307,7 +312,12 @@ export default function BulkPricingPage() {
         // Reset
         setTimeout(() => {
           setCurrentStep("action");
-          setAction({ type: "percentage_increase", value: 10, targetField: "base" });
+          setAction({
+            type: "percentage_increase",
+            value: 10,
+            targetField: "base",
+            roundingMode: "none",
+          });
           setPreview([]);
           setChangeGroupId("");
           setRunProgress(0);
@@ -730,6 +740,24 @@ export default function BulkPricingPage() {
           )}
 
           <div className="mt-6 flex items-center justify-end gap-3">
+            <div className="flex items-center gap-2 mr-auto">
+              <label className="text-xs text-gray-600">Final rounding</label>
+              <select
+                value={action.roundingMode || "none"}
+                onChange={(event) =>
+                  setAction({
+                    ...action,
+                    roundingMode: event.target.value as "none" | "up" | "down",
+                  })
+                }
+                className="border border-gray-200 bg-white text-gray-700 px-2 py-1.5 rounded-md text-xs"
+              >
+                <option value="none">None</option>
+                <option value="up">Round up</option>
+                <option value="down">Round down</option>
+              </select>
+            </div>
+
             <button
               onClick={() => {
                 setCurrentStep("preview");

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb } from "@lib/db";
 import { PriceFilter, PriceAction, ApiResponse, PriceChangeResponse, PricePreview } from "@/types";
-import { applyMarginProtection, calculateNewPrice, generateChangeGroupId } from "@lib/price-utils";
+import { applyDirectionalRounding, applyMarginProtection, calculateNewPrice, generateChangeGroupId } from "@lib/price-utils";
 import { isDemoShop, getMockVariants, getMockProducts } from "@lib/mock-data";
 import { verifySessionToken } from "@/lib/verify-session-token";
 
@@ -41,6 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
       const changeGroupId = generateChangeGroupId();
       const targetField = action.targetField || "base";
+      const roundingMode = action.roundingMode || "none";
 
       const preview: PricePreview[] = matchedVariants.map((v) => {
         const product = allProducts.find((p) => p.id === v.productId)!;
@@ -49,9 +50,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         const compareBaseSource = v.compareAtPrice ?? v.price;
         const compareCalculated = calculateNewPrice(compareBaseSource, action);
 
-        const newPrice = targetField === "compare_at" ? v.price : protectedBaseResult.price;
+        const roundedBase = applyDirectionalRounding(protectedBaseResult.price, roundingMode);
+        const roundedCompare = applyDirectionalRounding(Math.round(compareCalculated * 100) / 100, roundingMode);
+
+        const newPrice = targetField === "compare_at" ? v.price : roundedBase;
         const newCompareAtPrice =
-          targetField === "base" ? v.compareAtPrice : Math.round(compareCalculated * 100) / 100;
+          targetField === "base" ? v.compareAtPrice : roundedCompare;
 
         return {
           variantId: v.id,
@@ -146,6 +150,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     // Generate preview
     const changeGroupId = generateChangeGroupId();
+    const roundingMode = action.roundingMode || "none";
     const preview: PricePreview[] = variants.map((v) => {
       const oldPrice = Number(v.price);
       const oldCompareAtPrice =
@@ -163,11 +168,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       const compareBaseSource = oldCompareAtPrice ?? oldPrice;
       const compareCalculated = calculateNewPrice(compareBaseSource, action);
 
-      const newPrice = targetField === "compare_at" ? oldPrice : protectedBaseResult.price;
+      const roundedBase = applyDirectionalRounding(protectedBaseResult.price, roundingMode);
+      const roundedCompare = applyDirectionalRounding(Math.round(compareCalculated * 100) / 100, roundingMode);
+
+      const newPrice = targetField === "compare_at" ? oldPrice : roundedBase;
       const newCompareAtPrice =
         targetField === "base"
           ? oldCompareAtPrice
-          : Math.round(compareCalculated * 100) / 100;
+          : roundedCompare;
 
       return {
         variantId: v.id,
