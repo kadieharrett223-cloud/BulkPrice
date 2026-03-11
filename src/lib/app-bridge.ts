@@ -3,16 +3,74 @@
  * Works with the CDN-hosted App Bridge (window.shopify) loaded in _document.tsx.
  */
 
+let appBridgeAppPromise: Promise<any | null> | null = null;
+
+function resolveHost(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const fromQuery = new URLSearchParams(window.location.search).get("host");
+  if (fromQuery) {
+    localStorage.setItem("shopifyHost", fromQuery);
+    return fromQuery;
+  }
+
+  const fromStorage = localStorage.getItem("shopifyHost");
+  return fromStorage || null;
+}
+
+async function getAppBridgeApp(): Promise<any | null> {
+  if (typeof window === "undefined") return null;
+
+  if (appBridgeAppPromise) {
+    return appBridgeAppPromise;
+  }
+
+  appBridgeAppPromise = (async () => {
+    const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
+    const host = resolveHost();
+
+    if (!apiKey || !host) {
+      return null;
+    }
+
+    const appBridgeModule = await import("@shopify/app-bridge");
+    const createApp = (appBridgeModule as any).default;
+
+    if (!createApp) {
+      return null;
+    }
+
+    return createApp({ apiKey, host, forceRedirect: false });
+  })();
+
+  return appBridgeAppPromise;
+}
+
 /**
  * Returns a fresh Shopify session token when running inside Shopify Admin.
  * Returns null when running outside the iframe (demo mode, direct URL access, etc.).
  */
 export async function getSessionToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
-  if (!window.shopify?.idToken) return null;
 
   try {
-    return await window.shopify.idToken();
+    if (window.shopify?.idToken) {
+      const token = await window.shopify.idToken();
+      if (token) return token;
+    }
+  } catch {
+    // fall through to npm App Bridge fallback
+  }
+
+  try {
+    const app = await getAppBridgeApp();
+    if (!app) return null;
+
+    const appBridgeUtils = await import("@shopify/app-bridge/utilities");
+    const getSessionTokenFromApp = (appBridgeUtils as any).getSessionToken;
+
+    if (!getSessionTokenFromApp) return null;
+    return await getSessionTokenFromApp(app);
   } catch {
     return null;
   }

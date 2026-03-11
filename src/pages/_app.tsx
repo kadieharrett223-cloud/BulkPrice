@@ -87,10 +87,16 @@ export default function App({ Component, pageProps }: AppProps) {
   // Save shop parameter to localStorage when available
   useEffect(() => {
     const shop = router.query.shop as string;
+    const host = router.query.host as string;
+
     if (shop && typeof window !== "undefined") {
       localStorage.setItem("shopifyShop", shop);
     }
-  }, [router.query.shop]);
+
+    if (host && typeof window !== "undefined") {
+      localStorage.setItem("shopifyHost", host);
+    }
+  }, [router.query.shop, router.query.host]);
 
   // Detect demo mode and seed the fallback demo shop whenever there is no real shop.
   useEffect(() => {
