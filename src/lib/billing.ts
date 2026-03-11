@@ -18,7 +18,6 @@ export const BILLING_PLANS: Record<string, BillingPlan> = {
       "Bulk price updates",
       "Price history",
       "Rollback support",
-      "CSV import/export",
     ],
   },
   premium: {

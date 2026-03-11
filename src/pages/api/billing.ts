@@ -20,13 +20,23 @@ function buildManagedPricingRedirectUrl(shop: string, req: NextApiRequest): stri
     }
   }
 
+  if (!appHandleFromReferer && typeof referer === "string" && referer.includes("/charges/")) {
+    try {
+      const refererUrl = new URL(referer);
+      const chargeSegment = refererUrl.pathname.split("/charges/")[1] || "";
+      appHandleFromReferer = chargeSegment.split("/")[0] || "";
+    } catch {
+      appHandleFromReferer = "";
+    }
+  }
+
   const appHandle = appHandleFromEnv || appHandleFromReferer || "pricepilotpro";
 
   if (appHandle) {
-    return `https://admin.shopify.com/store/${storeHandle}/apps/${appHandle}`;
+    return `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
   }
 
-  return `https://admin.shopify.com/store/${storeHandle}/apps`;
+  return `https://admin.shopify.com/store/${storeHandle}/charges`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
