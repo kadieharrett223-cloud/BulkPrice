@@ -66,6 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const starterLimit = 5;
     const used = usage?.count || 0;
     const remaining = Math.max(0, starterLimit - used);
+    const nextRenewalAt = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1, 0, 0, 0, 0));
 
     return res.status(200).json({
       success: true,
@@ -75,6 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         limit: starterLimit,
         remaining,
         label: `${remaining} price changes left`,
+        nextRenewalAt: nextRenewalAt.toISOString(),
       },
     });
   } catch (error: any) {

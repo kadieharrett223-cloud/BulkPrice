@@ -46,6 +46,7 @@ export default function ScheduledPage() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [planType, setPlanType] = useState<"starter" | "premium">("starter");
   const [usageLabel, setUsageLabel] = useState<string>("--");
+  const [nextRenewalLabel, setNextRenewalLabel] = useState<string>("");
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [taskInput, setTaskInput] = useState("");
   const [premiumTasks, setPremiumTasks] = useState<string[]>([]);
@@ -129,6 +130,7 @@ export default function ScheduledPage() {
       if (shop === DEMO_SHOP) {
         setPlanType("starter");
         setUsageLabel("Demo mode – mock calendar preview");
+        setNextRenewalLabel("");
         setPremiumTasks([]);
         return;
       }
@@ -137,6 +139,22 @@ export default function ScheduledPage() {
       if (response.data?.success) {
         setPlanType(response.data.data.plan === "premium" ? "premium" : "starter");
         setUsageLabel(response.data.data.label || "--");
+        if (response.data.data.plan === "starter" && response.data.data.nextRenewalAt) {
+          const renewalDate = new Date(response.data.data.nextRenewalAt);
+          if (!Number.isNaN(renewalDate.getTime())) {
+            setNextRenewalLabel(
+              renewalDate.toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            );
+          } else {
+            setNextRenewalLabel("");
+          }
+        } else {
+          setNextRenewalLabel("");
+        }
 
         if (typeof window !== "undefined") {
           const taskKey = `premium-calendar-tasks:${shop}`;
@@ -149,6 +167,7 @@ export default function ScheduledPage() {
     } catch {
       setPlanType("starter");
       setUsageLabel("--");
+      setNextRenewalLabel("");
     }
   };
 
@@ -655,6 +674,11 @@ export default function ScheduledPage() {
             <span className="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full font-semibold whitespace-nowrap">
               {usageLabel}
             </span>
+            {planType === "starter" && nextRenewalLabel && (
+              <span className="text-xs px-3 py-1.5 bg-white text-blue-700 border border-blue-200 rounded-full font-semibold whitespace-nowrap">
+                Renews: {nextRenewalLabel}
+              </span>
+            )}
           </div>
         </div>
       )}
