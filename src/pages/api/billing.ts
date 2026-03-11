@@ -6,6 +6,7 @@ import { verifySessionToken } from "@/lib/verify-session-token";
 
 function buildManagedPricingRedirectUrl(shop: string, req: NextApiRequest): string {
   const storeHandle = shop.replace(/\.myshopify\.com$/i, "");
+  const managedPricingHandleFromEnv = process.env.SHOPIFY_MANAGED_PRICING_HANDLE?.trim();
   const appHandleFromEnv = process.env.SHOPIFY_APP_HANDLE?.trim();
 
   const referer = req.headers.referer || req.headers.referrer || "";
@@ -30,7 +31,7 @@ function buildManagedPricingRedirectUrl(shop: string, req: NextApiRequest): stri
     }
   }
 
-  const appHandle = appHandleFromEnv || appHandleFromReferer || "pricepilotpro";
+  const appHandle = managedPricingHandleFromEnv || appHandleFromEnv || appHandleFromReferer || "bulkprice-1";
 
   if (appHandle) {
     return `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
