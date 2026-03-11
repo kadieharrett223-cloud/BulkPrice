@@ -14,6 +14,7 @@ export default function Navigation() {
   const [showPlans, setShowPlans] = useState(false);
   const [usageLabel, setUsageLabel] = useState<string>("--");
   const [usagePlan, setUsagePlan] = useState<"starter" | "premium" | null>(null);
+  const [renewalLabel, setRenewalLabel] = useState<string>("");
 
   const links = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -74,6 +75,7 @@ export default function Navigation() {
       if (shop === DEMO_SHOP) {
         setUsageLabel("Demo mode – unlimited changes");
         setUsagePlan("premium");
+        setRenewalLabel("");
         return;
       }
 
@@ -82,9 +84,27 @@ export default function Navigation() {
         if (response.data?.success) {
           setUsageLabel(response.data.data.label || "--");
           setUsagePlan(response.data.data.plan || null);
+
+          if (response.data.data.plan === "starter" && response.data.data.nextRenewalAt) {
+            const renewalDate = new Date(response.data.data.nextRenewalAt);
+            if (!Number.isNaN(renewalDate.getTime())) {
+              setRenewalLabel(
+                renewalDate.toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              );
+            } else {
+              setRenewalLabel("");
+            }
+          } else {
+            setRenewalLabel("");
+          }
         }
       } catch {
         setUsageLabel("Usage unavailable");
+        setRenewalLabel("");
       }
     };
 
@@ -125,7 +145,7 @@ export default function Navigation() {
               ? "bg-green-50 text-green-700 border-green-200"
               : "bg-amber-50 text-amber-700 border-amber-200"
           }`}>
-            {usageLabel}
+            {usagePlan === "starter" && renewalLabel ? `${usageLabel} · Renews ${renewalLabel}` : usageLabel}
           </div>
           <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-medium">
             pri
